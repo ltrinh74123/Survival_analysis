@@ -1,0 +1,148 @@
+---
+title: "STAT3926/STAT4026: Statistical Consulting"
+subtitle: "Forecasting Model for Study Load at the University of Sydney"
+author:
+  - "Prepared by: 510288769"
+  - "Prepared for: David Foxe"
+title-block-banner: "#d85f33"
+date: "`r format(Sys.time(), '%d %B, %Y %H:%M')`"
+format: 
+  html: 
+    theme:
+      light: [united, style/custom_styles.scss]
+      dark: [darkly, style/custom_styles.scss]
+    embed-resources: true
+    code-fold: true
+    code-tools: true
+    includes:
+      in-header: style/www/header.html 
+    unsafe: true
+    smooth-scroll: true
+table-of-contents: true
+number-sections: false
+server: shiny
+
+---
+
+```{r}
+library(shiny)
+library(survminer)
+library(readxl)  
+library(DT) 
+library(ggplot2)
+library(tidyverse)
+library(broom)
+library(survival)
+library(survminer)
+
+library(dplyr)
+```
+
+## Executive Summary
+
+```{r}
+
+data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
+data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+data[data == 999.0] <- NA
+data = data %>% filter(!Diagnosis_number == 2.5)
+data$Diagnosis_number = as.factor(data$Diagnosis_number)
+```
+
+## Introduction
+
+
+## Model 
+```{r}
+res_cox <- coxph(Surv(`Diagnosis till death`) ~ strata(Diagnosis_number) + `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  data, model = TRUE)
+```
+
+```{r}
+model_list = list()
+test_ph_list = list()
+unique_dia_number = data$Diagnosis_number %>% unique()
+for (dia_number in unique_dia_number) {
+  filtered_data = data %>% filter(Diagnosis_number == dia_number)
+  cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filtered_data, model = TRUE)
+  test_ph <- cox.zph(cox_model)
+  model_list[[dia_number]] = cox_model
+  test_ph_list[[dia_number]] = test_ph
+}
+model_list[[1]]
+```
+
+
+```{r}
+#| label: inputs
+
+numericInput('age', 'Age at Diagnosis', 50, min = 1, max = 100)
+numericInput('duration', 'Disease duration at diagnosis', 50, min = 1, max = 100)
+numericInput('ace_total', 'ACEIII Total', 50, min = 1, max = 100)
+radioButtons("sex", "Sex", c("Male", "Female"), selected = "Male")
+radioButtons("diagnosis_number", "Diagnosis Number", c("1", "2", "4"),selected = "1")
+actionButton("submit", "Submit")
+tableOutput('dataTable')
+plotOutput('survivalPlot')
+
+```
+
+
+```{r}
+#| context: server
+library(survival)
+library(tidyverse)
+library(survminer)
+
+
+data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
+data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+data[data == 999.0] <- NA
+data = data %>% filter(!Diagnosis_number == 2.5)
+data$Diagnosis_number = as.factor(data$Diagnosis_number)
+
+# model_list = list()
+# unique_dia_number = data$Diagnosis_number %>% unique()
+# for (dia_number in unique_dia_number) {
+#   filtered_data = data %>% filter(Diagnosis_number == dia_number)
+#   cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filtered_data, model = TRUE)
+#   model_list[[dia_number]] = cox_model
+# }
+
+rv <- reactiveValues(data = NULL)
+
+observeEvent(input$submit, {
+  sex_numeric <- ifelse(input$sex == "Male", 1, 2)
+  rv$df <- data.frame(
+    `Sex (Male 1, Female 2)` = as.integer(sex_numeric), 
+    `Age at diagnosis` = input$age, 
+    `Disease duration at diagnosis` = input$duration,
+    `ACEIII::ACEIIITotal` = input$ace_total,
+    `diagnosis_number` = as.integer(input$diagnosis_number),
+    check.names = FALSE
+  )
+})
+
+ rv_model = reactive({
+   filter_data = data %>% filter(Diagnosis_number == rv$df$diagnosis_number)
+   cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filter_data, model = TRUE)
+ })
+
+ surv_fit <- reactive({
+   fit <- survfit(rv_model(), newdata = rv$df[1:4])
+ })
+
+ output$survivalPlot = renderPlot({
+   plot(surv_fit(), ylab = "Probability of Survival", xlab = "Time",
+            col = c("red", "black", "black"), main = "Survival Curve")
+})
+
+output$dataTable <- renderTable({
+  rv$df
+})
+```
+
+
+
+## Appendix
+
+
