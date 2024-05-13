@@ -7,6 +7,7 @@ editor: visual
 ```{r}
 library(survminer)
 library(dplyr)
+library(survival)
 data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
 ```
 
@@ -19,6 +20,7 @@ data[data == 999.0] <- NA
 data = data %>% filter(!Diagnosis_number == 2.5)
 data$Diagnosis_number %>% table()
 ```
+
 ```{r}
 fit <- survfit(Surv(`Diagnosis till death`,rep(1, length(`Diagnosis till death`))) ~ Diagnosis_number, data = data)
 ```
