@@ -1,0 +1,83 @@
+---
+title: "STAT4026Consultation3Q2"
+author: '500199066'
+date: "2024-05-13"
+output: html_document
+---
+
+```{r}
+library(readxl)
+library(tidyverse)
+library("survival")
+library("survminer")
+data = readxl::read_xlsx("/Users/betty/Desktop/240508_Survival_project_for_maths_students_opened.xlsx")
+```
+
+```{r}
+data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+data[data == 999.0] <- NA
+data = data %>% filter(!Diagnosis_number == 2.5)
+data$Diagnosis_number = as.factor(data$Diagnosis_number)
+```
+
+```{r}
+#Non numeric variables
+non_numeric_vars <- names(data)[!sapply(data, is.numeric)]
+#Delete non numeric variables
+df <- data %>% select(-'Diagnosis_number', -'SummaryPrimaryDiagnosis_descriptor', -'Sex (Male 1, Female 2)', -'CBI::PercentBeliefsFCorrected', -'CBI::PercentSleepFCorrected')
+#Standarize data
+data_standardized <- scale(df)
+data_standardized <- as.data.frame(data_standardized)
+```
+
+```{r}
+#Combine non numeric variables
+data_stand <- cbind(data_standardized, data$Diagnosis_number, data$`Sex (Male 1, Female 2)`, data$`CBI::PercentBeliefsFCorrected`, data$`CBI::PercentSleepFCorrected`)
+
+colnames(data_stand)[colnames(data_stand) == "data$Diagnosis_number"] <- "Diagnosis_number"
+colnames(data_stand)[colnames(data_stand) == "data$`Sex (Male 1, Female 2)`"] <- "Sex (Male 1, Female 2)"
+colnames(data_stand)[colnames(data_stand) == "data$`CBI::PercentBeliefsFCorrected`"] <- "CBI::PercentBeliefsFCorrected"
+colnames(data_stand)[colnames(data_stand) == "data$`CBI::PercentSleepFCorrected`"] <- "CBI::PercentSleepFCorrected"
+```
+
+```{r}
+#Model
+m <- coxph(Surv(`Diagnosis till death`) ~ strata(data$Diagnosis_number) + `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data = data_stand, model = TRUE)
+
+
+data_stand <- na.omit(data_stand)
+data_stand$`Diagnosis till death` <- as.numeric(data_stand$`Diagnosis till death`)
+numeric_columns <- sapply(data_stand, is.numeric)
+data_stand[numeric_columns] <- scale(data_stand[numeric_columns])
+library(car)
+linear_model <- lm(`Diagnosis till death` ~ ., data = data_stand)
+vif_values <- vif(linear_model)
+vif_values
+high_vif <- names(vif_values)[vif_values > 10]
+data_stand_reduced <- data_stand[, !(names(data_stand) %in% high_vif)]
+m2 <- coxph(
+  Surv(`Diagnosis till death`) ~ . + strata(`Diagnosis_number`) + strata(`Sex (Male 1, Female 2)`) + strata(`CBI::PercentBeliefsFCorrected`) + strata(`CBI::PercentSleepFCorrected`), 
+  data = data_stand_reduced, 
+  model = TRUE, 
+  control = coxph.control(iter.max = 1000)
+)
+summary(m2)
+
+m2 <- coxph(Surv(`Diagnosis till death`) ~ . + strata(`Diagnosis_number`) + strata(`Sex (Male 1, Female 2)`) + strata(`CBI::PercentBeliefsFCorrected`) + strata(`CBI::PercentSleepFCorrected`), data = data_stand, model = TRUE)
+
+
+#summary(m)
+```
+
+
+```{r}
+data <- data.frame(
+  Variable1 = c(10, 20, 30, 40, 50),
+  Variable2 = c(15, 25, 35, 45, 55),
+  Variable3 = c(20, 30, 40, 50, 60)
+)
+data
+data_standardized <- scale(data)
+data_standardized
+```
+
