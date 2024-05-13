@@ -24,18 +24,23 @@ server: shiny
 
 ---
 
-```{r, messages = FALSE}
-library(purrr)
-library(shiny)
-library(survminer)
-library(readxl)  
-library(DT) 
-library(ggplot2)
-library(tidyverse)
-library(broom)
-library(survival)
-library(survminer)
-library(dplyr)
+```{r setup, messages = FALSE, echo=FALSE, warning= FALSE}
+suppressMessages({
+  suppressWarnings({
+    library(purrr)
+    library(shiny)
+    library(survminer)
+    library(readxl)  
+    library(DT) 
+    library(ggplot2)
+    library(tidyverse)
+    library(broom)
+    library(survival)
+    library(dplyr)
+    library(kableExtra)
+  })
+})
+
 ```
 
 ## Executive Summary
@@ -51,12 +56,14 @@ data$Diagnosis_name <- mapping_vector[as.character(data$Diagnosis_number)]
 
 ```
 
-## Introduction
+## Background
+Previously, the client implemented a Kaplan-Meier survival curve to model the survival predictions across different types of dementia.
 
+## Client's Aims
+The client has two aims for this project. The first is to produce an interactive graph that provides a comprehensive exploration of the time from formal diagnosis to death based on four key covariates: age at diagnosis, sex, disease duration at diagnosis, and overall cognitive performance measured by the ACE-III test. These covariates were selected by the client based on their expertise and the availability of data. The second aim is to explore additional variables, including those from the Cambridge Behavioural Inventory-Revised carer questionnaire, family history of dementia as defined by a Goldman Score, and cognitive abilities. The client suspects these variables may influence survival rates and wants more clarity on the extent of the impact each factor has on survival.
 
 ## Model 
-
-A model was made for each dementia group where 
+To meet the client's objective of understanding how various covariates affect different dementia patient groups, we implemented a Cox Proportional Hazards regression model for each type of dementia, serving as the foundation of the interactive survival graph. This approach was informed by previous client analyses that highlighted statistically significant survival differences across dementia diagnoses. Each model accounted for age at diagnosis, sex, disease duration at diagnosis, and overall cognitive performance as assessed by the ACE-III test. While the Cox regression model does not assume any underlying data distribution, it does require other assumptions to be satisfied (details in the appendix). 
 
 ```{r}
 subset_columns <- c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number")
@@ -70,6 +77,7 @@ data_cleaned = data_cleaned %>% select(c("Diagnosis till death", "Age at diagnos
 ```{r}
 model_list = list()
 test_ph_list = list()
+covariate_names = c("Age at diagnosis", "Sex", "Disease duration at diagnosis", "ACE-III Total", "GLOBAL")
 unique_dx = data_cleaned$Diagnosis_name %>% unique()
 for (dx in unique_dx) {
   filtered_data = data_cleaned %>% filter(Diagnosis_name == dx)
@@ -78,15 +86,16 @@ for (dx in unique_dx) {
   zph <- cox.zph(cox_model) 
   
   tidy_zph <- data.frame(
-    Covariate = names(zph$table[, "chisq"]),
+    Covariate = covariate_names,
     Chisq = zph$table[, "chisq"],
-    Degrees_of_Freedom = zph$table[, "df"],
-    P_value = zph$table[, "p"]
+    `Degrees of Freedom` = zph$table[, "df"],
+    `p-value` = zph$table[, "p"],
+    check.names = FALSE
   )
   
   test_ph_tidy = tidy_zph %>% mutate(
     Chisq = round(Chisq, 2),
-    P_value = round(P_value, 3)
+    `p-value` = round(`p-value`, 3)
   )
   row.names(test_ph_tidy) <- NULL
 
@@ -95,126 +104,44 @@ for (dx in unique_dx) {
 }
 ```
 
-## Shiny 
 
-::: {.panel-tabset}
-
-### Shiny 1
-```{r}
-#| panel: sidebar
-
-numericInput('age', 'Age at Diagnosis', 70, min = 1, max = 100)
-numericInput('duration', 'Disease duration at diagnosis', 3, min = 1, max = 100)
-numericInput('ace_total', 'ACEIII Total', 60, min = 1, max = 100)
-radioButtons("sex", "Sex", c("Male", "Female"), selected = "Male")
-radioButtons("diagnosis", "Diagnosis", c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND"),selected = "AD",  inline=TRUE)
-actionButton("submit", "Submit")
-
-```
+## Interactive Survival Graph
+The interactive survival graph is designed to facilitate the analysis of different patient groups by inputting their specific data. This feature allows users to observe and compare how various factors impact survival rates across different groups. As shown in the graph, users can select patient attributes such as age at diagnosis, disease duration, ACE-III total scores, and gender, along with specific dementia diagnoses. By adjusting these parameters, the graph dynamically illustrates the survival probabilities over time, enabling a detailed comparison between two distinct patient groups. 
 
 ```{r}
 #| panel: fill
-plotOutput('survivalPlot')
-
+plotOutput('plot')
 ```
 
+::: {layout="[[1,1]]"}
 ```{r}
-#| context: server
-library(survival)
-library(tidyverse)
-library(survminer)
-
-
-data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
-data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
-data[data == 999.0] <- NA
-data = data %>% filter(!Diagnosis_number == 2.5)
-mapping_vector <- c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND")
-names(mapping_vector) <- c("1", "10", "2", "16", "12", "4", "3", "14", "9")
-
-data$Diagnosis_name <- mapping_vector[as.character(data$Diagnosis_number)]
-subset_columns <- c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number")
-
-# Remove rows with missing values in the specified subset of columns
-data_cleaned <- data %>%
-  filter(rowSums(is.na(select(., all_of(subset_columns)))) == 0)
-data_cleaned = data_cleaned %>% select(c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number", "Diagnosis_name"))
-
-rv <- reactiveValues(data = NULL)
-
-observeEvent(input$submit, {
-  sex_numeric <- ifelse(input$sex == "Male", 1, 2)
-  rv$df <- data.frame(
-    `Sex (Male 1, Female 2)` = as.integer(sex_numeric), 
-    `Age at diagnosis` = input$age, 
-    `Disease duration at diagnosis` = input$duration,
-    `ACEIII::ACEIIITotal` = input$ace_total,
-    diagnosis = input$diagnosis,
-    check.names = FALSE
-  )
-})
-
- rv_model = reactive({
-   req(rv$df)
-   filter_data = data_cleaned %>% filter(Diagnosis_name == rv$df$diagnosis)
-   cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filter_data, model = TRUE)
- })
-
- surv_fit <- reactive({
-   req(rv_model())
-   fit <- survfit(rv_model(), newdata = rv$df[1:4])
- })
-
- output$survivalPlot = renderPlot({
-   req(surv_fit())
-   plot(surv_fit(), ylab = "Probability of Survival", xlab = "Time",
-            col = c("red", "black", "black"), main = "Survival Curve")
-})
-
-# output$dataTable <- renderTable({
-#   rv$df
-# })
-```
-
-### Shiny 2
-```{r}
-#| panel: sidebar
-
-h3("Patient 1")
+#| panel: input
+h5("Patient Group 1")
 numericInput('age_1', 'Age at Diagnosis', 70, min = 1, max = 100)
 numericInput('duration_1', 'Disease duration at diagnosis', 3, min = 1, max = 100)
 numericInput('ace_total_1', 'ACEIII Total', 60, min = 1, max = 100)
-radioButtons("sex_1", "Sex", c("Male", "Female"))
+radioButtons("sex_1", "Sex", c("Male", "Female"), "Female", inline=TRUE)
 radioButtons("diagnosis_1", "Diagnosis", c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND"), inline=TRUE)
-
-h3("Patient 2")
-
-numericInput('age_2', 'Age at Diagnosis', 70, min = 1, max = 100)
-numericInput('duration_2', 'Disease duration at diagnosis', 3, min = 1, max = 100)
-numericInput('ace_total_2', 'ACEIII Total', 60, min = 1, max = 100)
-radioButtons("sex_2", "Sex", c("Male", "Female"))
-radioButtons("diagnosis_2", "Diagnosis", c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND"), inline=TRUE)
-
-br()
-
-actionButton("submit_2", "Submit")
 ```
 
 ```{r}
-#| panel: fill
-
-plotOutput('survivalPlot_1')
-plotOutput('survivalPlot_2')
-
-plotOutput('dataTable')
+#| panel: input
+h5("Patient Group 2")
+numericInput('age_2', 'Age at Diagnosis', 70, min = 1, max = 100)
+numericInput('duration_2', 'Disease duration at diagnosis', 3, min = 1, max = 100)
+numericInput('ace_total_2', 'ACEIII Total', 60, min = 1, max = 100)
+radioButtons("sex_2", "Sex", c("Male", "Female"), inline = TRUE)
+radioButtons("diagnosis_2", "Diagnosis", c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND"), inline=TRUE)
 
 ```
+:::
 
 ```{r}
 #| context: server
 library(survival)
 library(tidyverse)
 library(survminer)
+library(pammtools)
 
 
 data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
@@ -232,97 +159,98 @@ data_cleaned <- data %>%
   filter(rowSums(is.na(select(., all_of(subset_columns)))) == 0)
 data_cleaned = data_cleaned %>% select(c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number", "Diagnosis_name"))
 
-rv1 <- reactiveValues(data = NULL)
+obs_start = data.frame(time = 0, surv = 1, upper = 1, lower = 1)
 
-observeEvent(input$submit_2, {
+reactiveData1 <- reactive({
+validate(
+      need(input$age_1 != "", "Please input an age number in patient group 1"),
+      need(input$duration_1 != "", "Please input a disease duration at diagnosis number in patient group 1"),
+      need(input$ace_total_1 != "", "Please input an ACE-III total in patient group 1")
+
+    )
   sex_numeric_1 <- ifelse(input$sex_1 == "Male", 1, 2)
-  rv1$df_1 <- data.frame(
+      data.frame(
+    obs = "Patient Group 1",
     `Sex (Male 1, Female 2)` = as.integer(sex_numeric_1), 
     `Age at diagnosis` = input$age_1, 
     `Disease duration at diagnosis` = input$duration_1,
     `ACEIII::ACEIIITotal` = input$ace_total_1,
     diagnosis = input$diagnosis_1,
-    check.names = FALSE
-  )
+    check.names = FALSE)
+})
 
+reactiveData2 <- reactive({
+validate(
+      need(input$age_2 != "", "Please input an age number in patient group 2"),
+ need(input$duration_2 != "", "Please input a disease duration at diagnosis number in patient group 2"),
+      need(input$ace_total_2 != "", "Please input an ACE-III total in patient group 2")
+    )
   sex_numeric_2 <- ifelse(input$sex_2 == "Male", 1, 2)
-  rv1$df_2 = data.frame(
+      data.frame(
+    obs = "Patient Group 2",
     `Sex (Male 1, Female 2)` = as.integer(sex_numeric_2), 
     `Age at diagnosis` = input$age_2, 
     `Disease duration at diagnosis` = input$duration_2,
     `ACEIII::ACEIIITotal` = input$ace_total_2,
     diagnosis = input$diagnosis_2,
-    check.names = FALSE
-  )
+    check.names = FALSE)
 })
 
+
+
+#Make model for the diagnosis selected
  rv_model_1 = reactive({
-   req(rv1$df_1)
-   filter_data_1 = data_cleaned %>% filter(Diagnosis_name == rv1$df_1$diagnosis)
+   filter_data_1 = data_cleaned %>% filter(Diagnosis_name == reactiveData1()$diagnosis)
    cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filter_data_1, model = TRUE)
 })
 
  rv_model_2 = reactive({
-  req(rv1$df_2)
-  filter_data_2 = data_cleaned %>% filter(Diagnosis_name == rv1$df_2$diagnosis)
+  filter_data_2 = data_cleaned %>% filter(Diagnosis_name == reactiveData2()$diagnosis)
   cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filter_data_2, model = TRUE)
  })
 
-#  surv_fit_1 <- reactive({
-#    req(rv_model_1())
-# fit1 <- survfit(rv_model_1(), newdata = rv1$df_1[1:4])
-#    # fit1 <- survfit(rv_model_1(), newdata = rv1$df_1[1:4]) %>% surv_summary() %>% as.data.frame()
-#    # fit1$obs = "Patient 1"
-#  })
-# 
-#  surv_fit_2 <- reactive({
-#    req(rv_model_2())
-#   fit2 <- survfit(rv_model_2(), newdata = rv1$df_2[1:4])
-#    # fit2 <- survfit(rv_model_2(), newdata = rv1$df_2[1:4]) %>% surv_summary() %>% as.data.frame()
-#    # fit2$obs = "Patient 2"
-#  })
-
+#Fit the new data with the model and make a dataframe
 surv_fit_1 <- reactive({
-   req(rv_model_1())
-   fit1 <- survfit(rv_model_1(), newdata = rv1$df_1[1:4]) %>% surv_summary() %>% as.data.frame()
-   fit1$obs = "Patient 1"
+   # req(rv_model_1())
+   fit1 <- survfit(rv_model_1(), newdata = reactiveData1()[2:5]) %>% surv_summary() %>% as.data.frame() 
+  fit1 = bind_rows(fit1, obs_start)
+fit1 = fit1%>% mutate(obs = "Patient Group 1")
  })
 
  surv_fit_2 <- reactive({
-   req(rv_model_2())
-   fit2 <- survfit(rv_model_2(), newdata = rv1$df_2[1:4]) %>% surv_summary() %>% as.data.frame()
-   fit2$obs = "Patient 2"
-   return fit_2
+   # req(rv_model_2())
+   fit2 <- survfit(rv_model_2(), newdata = reactiveData2()[2:5]) %>% surv_summary() %>% as.data.frame()
+  fit2 = bind_rows(fit2, obs_start) %>% mutate(obs = "Patient Group 2")
+
  })
 
 new_patients <- reactive({
-
-  new_obs <- rbind(rv1$fit1, rv1$fit2)  # Combine the results
-    # Return the combined data frame
-})
-
-# output$survivalPlot_1 = renderPlot({
-#   req(new_patients())
-#   ggplot(data = new_patients()) + geom_step(aes(x = time, y = surv, color = obs)) + geom_stepribbon(aes(x = time, ymin = lower, ymax = upper, fill = obs), alpha = 0.3) + theme_bw()
-# })
- output$survivalPlot_1 = renderPlot({
-   req(surv_fit_1())
-   plot(surv_fit_1(), ylab = "Probability of Survival", xlab = "Time",
-            col = c("red", "black", "black"), main = "Survival Curve")
-})
-
- output$survivalPlot_2 = renderPlot({
-   req(surv_fit_2())
-   plot(surv_fit_2(), ylab = "Probability of Survival", xlab = "Time",
-            col = c("red", "black", "black"), main = "Survival Curve")
+  new_obs <- rbind(surv_fit_1(), surv_fit_2())  # Combine the results
 })
 
 output$dataTable <- renderTable({
   new_patients()
 })
+
+output$plot <- renderPlot({
+ggplot(data = new_patients()) + geom_step(aes(x = time, y = surv, color = obs), size = 0.8) + geom_stepribbon(aes(x = time, ymin = lower, ymax = upper, fill = obs), alpha = 0.2) + theme_bw() + ggtitle("Cox Proportional Hazards Regression on Survival in Dementia") + ylab("Survival Probability") + xlab("Years") + 
+    theme(legend.position = "right", 
+          legend.direction = "vertical", 
+          legend.key.size = unit(0.5, "cm"),
+          legend.text = element_text(size = 14), 
+          legend.title = element_text(size = 0),
+          legend.margin = ggplot2::margin(t = 0, unit = "pt"),
+          axis.title = element_text(face = "bold"),
+          plot.title = element_text(face = "bold", size = 16, hjust = 0.5)) +
+  scale_x_continuous(breaks = seq(min(new_patients()$time), max(new_patients()$time), by = 1)) +
+  theme(axis.text = element_text(size = 12),  # Set x and y tick size
+        axis.title = element_text(size = 14)) 
+})
+
 ```
 
-:::
+
+
 
 ## Appendix
 
@@ -335,13 +263,12 @@ output$dataTable <- renderTable({
 #| warning: false
 
 headings <- names(test_ph_list)
+
 for (i in seq_along(test_ph_list)) {
-  cat("# ",headings[i],"\n")
-  cat("```\n")
-  print(test_ph_list[[i]])
-  cat("\n```\n")
-  cat('\n\n')
-}
+  cat("# ", headings[i], "\n")
+  print(kable(test_ph_list[[i]], format = "markdown") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")))
+  cat("\n\n")}
 ```
 
 :::
