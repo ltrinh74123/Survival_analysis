@@ -93,6 +93,10 @@ theme &lt;- bs_theme(font_scale = 1.5)
 # Define UI for app that draws a histogram ----
 ui &lt;- page_sidebar(theme = theme,
   sidebar = sidebar(open = "open",
+      fileInput("file", "Choose CSV File", accept = ".csv"),
+      tags$hr(),
+      checkboxInput("header", "Header", TRUE),
+      checkboxInput("stringAsFactors", "Convert strings to factors", TRUE),
     numericInput("n", "Sample count", 100),
     checkboxInput("pause", "Pause", FALSE),
   ),
@@ -100,12 +104,19 @@ ui &lt;- page_sidebar(theme = theme,
 )
 
 server &lt;- function(input, output, session) {
-  data &lt;- reactive({
-    input$resample
-    if (!isTRUE(input$pause)) {
-      invalidateLater(1000)
-    }
-    rnorm(input$n)
+  # data &lt;- reactive({
+  #   input$resample
+  #   if (!isTRUE(input$pause)) {
+  #     invalidateLater(1000)
+  #   }
+  #   rnorm(input$n)
+  # })
+  # data &lt;- reactive({
+    req(input$file)
+    df &lt;- read.csv(input$file$datapath,
+                   header = input$header,
+                   stringsAsFactors = input$stringAsFactors)
+    return(df)
   })
   
   output$plot &lt;- renderPlot({

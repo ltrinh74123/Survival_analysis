@@ -1,6 +1,6 @@
 ---
 title: "STAT3926/STAT4026: Statistical Consulting"
-subtitle: "Forecasting Model for Study Load at the University of Sydney"
+subtitle: "Survival Analysis"
 author:
   - "Prepared by: 510288769"
   - "Prepared for: David Foxe"
@@ -24,7 +24,8 @@ server: shiny
 
 ---
 
-```{r}
+```{r, messages = FALSE}
+library(purrr)
 library(shiny)
 library(survminer)
 library(readxl)  
@@ -34,58 +35,88 @@ library(tidyverse)
 library(broom)
 library(survival)
 library(survminer)
-
 library(dplyr)
 ```
 
 ## Executive Summary
 
 ```{r}
-
 data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
 data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
 data[data == 999.0] <- NA
 data = data %>% filter(!Diagnosis_number == 2.5)
-data$Diagnosis_number = as.factor(data$Diagnosis_number)
+mapping_vector <- c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND")
+names(mapping_vector) <- c("1", "10", "2", "16", "12", "4", "3", "14", "9")
+data$Diagnosis_name <- mapping_vector[as.character(data$Diagnosis_number)]
+
 ```
 
 ## Introduction
 
 
 ## Model 
+
+A model was made for each dementia group where 
+
 ```{r}
-res_cox <- coxph(Surv(`Diagnosis till death`) ~ strata(Diagnosis_number) + `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  data, model = TRUE)
+subset_columns <- c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number")
+
+# Remove rows with missing values in the specified subset of columns
+data_cleaned <- data %>%
+  filter(rowSums(is.na(select(., all_of(subset_columns)))) == 0)
+data_cleaned = data_cleaned %>% select(c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number", "Diagnosis_name"))
 ```
 
 ```{r}
 model_list = list()
 test_ph_list = list()
-unique_dia_number = data$Diagnosis_number %>% unique()
-for (dia_number in unique_dia_number) {
-  filtered_data = data %>% filter(Diagnosis_number == dia_number)
+unique_dx = data_cleaned$Diagnosis_name %>% unique()
+for (dx in unique_dx) {
+  filtered_data = data_cleaned %>% filter(Diagnosis_name == dx)
   cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filtered_data, model = TRUE)
-  test_ph <- cox.zph(cox_model)
-  model_list[[dia_number]] = cox_model
-  test_ph_list[[dia_number]] = test_ph
+  
+  zph <- cox.zph(cox_model) 
+  
+  tidy_zph <- data.frame(
+    Covariate = names(zph$table[, "chisq"]),
+    Chisq = zph$table[, "chisq"],
+    Degrees_of_Freedom = zph$table[, "df"],
+    P_value = zph$table[, "p"]
+  )
+  
+  test_ph_tidy = tidy_zph %>% mutate(
+    Chisq = round(Chisq, 2),
+    P_value = round(P_value, 3)
+  )
+  row.names(test_ph_tidy) <- NULL
+
+  model_list[[as.character(dx)]] = cox_model
+  test_ph_list[[as.character(dx)]] = test_ph_tidy
 }
-model_list[[1]]
 ```
 
+## Shiny 
+
+::: {.panel-tabset}
+
+### Shiny 1
+```{r}
+#| panel: sidebar
+
+numericInput('age', 'Age at Diagnosis', 70, min = 1, max = 100)
+numericInput('duration', 'Disease duration at diagnosis', 3, min = 1, max = 100)
+numericInput('ace_total', 'ACEIII Total', 60, min = 1, max = 100)
+radioButtons("sex", "Sex", c("Male", "Female"), selected = "Male")
+radioButtons("diagnosis", "Diagnosis", c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND"),selected = "AD",  inline=TRUE)
+actionButton("submit", "Submit")
+
+```
 
 ```{r}
-#| label: inputs
-
-numericInput('age', 'Age at Diagnosis', 50, min = 1, max = 100)
-numericInput('duration', 'Disease duration at diagnosis', 50, min = 1, max = 100)
-numericInput('ace_total', 'ACEIII Total', 50, min = 1, max = 100)
-radioButtons("sex", "Sex", c("Male", "Female"), selected = "Male")
-radioButtons("diagnosis_number", "Diagnosis Number", c("1", "2", "4"),selected = "1")
-actionButton("submit", "Submit")
-tableOutput('dataTable')
+#| panel: fill
 plotOutput('survivalPlot')
 
 ```
-
 
 ```{r}
 #| context: server
@@ -98,15 +129,16 @@ data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx
 data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
 data[data == 999.0] <- NA
 data = data %>% filter(!Diagnosis_number == 2.5)
-data$Diagnosis_number = as.factor(data$Diagnosis_number)
+mapping_vector <- c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND")
+names(mapping_vector) <- c("1", "10", "2", "16", "12", "4", "3", "14", "9")
 
-# model_list = list()
-# unique_dia_number = data$Diagnosis_number %>% unique()
-# for (dia_number in unique_dia_number) {
-#   filtered_data = data %>% filter(Diagnosis_number == dia_number)
-#   cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filtered_data, model = TRUE)
-#   model_list[[dia_number]] = cox_model
-# }
+data$Diagnosis_name <- mapping_vector[as.character(data$Diagnosis_number)]
+subset_columns <- c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number")
+
+# Remove rows with missing values in the specified subset of columns
+data_cleaned <- data %>%
+  filter(rowSums(is.na(select(., all_of(subset_columns)))) == 0)
+data_cleaned = data_cleaned %>% select(c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number", "Diagnosis_name"))
 
 rv <- reactiveValues(data = NULL)
 
@@ -117,32 +149,199 @@ observeEvent(input$submit, {
     `Age at diagnosis` = input$age, 
     `Disease duration at diagnosis` = input$duration,
     `ACEIII::ACEIIITotal` = input$ace_total,
-    `diagnosis_number` = as.integer(input$diagnosis_number),
+    diagnosis = input$diagnosis,
     check.names = FALSE
   )
 })
 
  rv_model = reactive({
-   filter_data = data %>% filter(Diagnosis_number == rv$df$diagnosis_number)
+   req(rv$df)
+   filter_data = data_cleaned %>% filter(Diagnosis_name == rv$df$diagnosis)
    cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filter_data, model = TRUE)
  })
 
  surv_fit <- reactive({
+   req(rv_model())
    fit <- survfit(rv_model(), newdata = rv$df[1:4])
  })
 
  output$survivalPlot = renderPlot({
+   req(surv_fit())
    plot(surv_fit(), ylab = "Probability of Survival", xlab = "Time",
             col = c("red", "black", "black"), main = "Survival Curve")
 })
 
+# output$dataTable <- renderTable({
+#   rv$df
+# })
+```
+
+### Shiny 2
+```{r}
+#| panel: sidebar
+
+h3("Patient 1")
+numericInput('age_1', 'Age at Diagnosis', 70, min = 1, max = 100)
+numericInput('duration_1', 'Disease duration at diagnosis', 3, min = 1, max = 100)
+numericInput('ace_total_1', 'ACEIII Total', 60, min = 1, max = 100)
+radioButtons("sex_1", "Sex", c("Male", "Female"))
+radioButtons("diagnosis_1", "Diagnosis", c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND"), inline=TRUE)
+
+h3("Patient 2")
+
+numericInput('age_2', 'Age at Diagnosis', 70, min = 1, max = 100)
+numericInput('duration_2', 'Disease duration at diagnosis', 3, min = 1, max = 100)
+numericInput('ace_total_2', 'ACEIII Total', 60, min = 1, max = 100)
+radioButtons("sex_2", "Sex", c("Male", "Female"))
+radioButtons("diagnosis_2", "Diagnosis", c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND"), inline=TRUE)
+
+br()
+
+actionButton("submit_2", "Submit")
+```
+
+```{r}
+#| panel: fill
+
+plotOutput('survivalPlot_1')
+plotOutput('survivalPlot_2')
+
+plotOutput('dataTable')
+
+```
+
+```{r}
+#| context: server
+library(survival)
+library(tidyverse)
+library(survminer)
+
+
+data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
+data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+data[data == 999.0] <- NA
+data = data %>% filter(!Diagnosis_number == 2.5)
+mapping_vector <- c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND")
+names(mapping_vector) <- c("1", "10", "2", "16", "12", "4", "3", "14", "9")
+
+data$Diagnosis_name <- mapping_vector[as.character(data$Diagnosis_number)]
+subset_columns <- c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number")
+
+# Remove rows with missing values in the specified subset of columns
+data_cleaned <- data %>%
+  filter(rowSums(is.na(select(., all_of(subset_columns)))) == 0)
+data_cleaned = data_cleaned %>% select(c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number", "Diagnosis_name"))
+
+rv1 <- reactiveValues(data = NULL)
+
+observeEvent(input$submit_2, {
+  sex_numeric_1 <- ifelse(input$sex_1 == "Male", 1, 2)
+  rv1$df_1 <- data.frame(
+    `Sex (Male 1, Female 2)` = as.integer(sex_numeric_1), 
+    `Age at diagnosis` = input$age_1, 
+    `Disease duration at diagnosis` = input$duration_1,
+    `ACEIII::ACEIIITotal` = input$ace_total_1,
+    diagnosis = input$diagnosis_1,
+    check.names = FALSE
+  )
+
+  sex_numeric_2 <- ifelse(input$sex_2 == "Male", 1, 2)
+  rv1$df_2 = data.frame(
+    `Sex (Male 1, Female 2)` = as.integer(sex_numeric_2), 
+    `Age at diagnosis` = input$age_2, 
+    `Disease duration at diagnosis` = input$duration_2,
+    `ACEIII::ACEIIITotal` = input$ace_total_2,
+    diagnosis = input$diagnosis_2,
+    check.names = FALSE
+  )
+})
+
+ rv_model_1 = reactive({
+   req(rv1$df_1)
+   filter_data_1 = data_cleaned %>% filter(Diagnosis_name == rv1$df_1$diagnosis)
+   cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filter_data_1, model = TRUE)
+})
+
+ rv_model_2 = reactive({
+  req(rv1$df_2)
+  filter_data_2 = data_cleaned %>% filter(Diagnosis_name == rv1$df_2$diagnosis)
+  cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filter_data_2, model = TRUE)
+ })
+
+#  surv_fit_1 <- reactive({
+#    req(rv_model_1())
+# fit1 <- survfit(rv_model_1(), newdata = rv1$df_1[1:4])
+#    # fit1 <- survfit(rv_model_1(), newdata = rv1$df_1[1:4]) %>% surv_summary() %>% as.data.frame()
+#    # fit1$obs = "Patient 1"
+#  })
+# 
+#  surv_fit_2 <- reactive({
+#    req(rv_model_2())
+#   fit2 <- survfit(rv_model_2(), newdata = rv1$df_2[1:4])
+#    # fit2 <- survfit(rv_model_2(), newdata = rv1$df_2[1:4]) %>% surv_summary() %>% as.data.frame()
+#    # fit2$obs = "Patient 2"
+#  })
+
+surv_fit_1 <- reactive({
+   req(rv_model_1())
+   fit1 <- survfit(rv_model_1(), newdata = rv1$df_1[1:4]) %>% surv_summary() %>% as.data.frame()
+   fit1$obs = "Patient 1"
+ })
+
+ surv_fit_2 <- reactive({
+   req(rv_model_2())
+   fit2 <- survfit(rv_model_2(), newdata = rv1$df_2[1:4]) %>% surv_summary() %>% as.data.frame()
+   fit2$obs = "Patient 2"
+   return fit_2
+ })
+
+new_patients <- reactive({
+
+  new_obs <- rbind(rv1$fit1, rv1$fit2)  # Combine the results
+    # Return the combined data frame
+})
+
+# output$survivalPlot_1 = renderPlot({
+#   req(new_patients())
+#   ggplot(data = new_patients()) + geom_step(aes(x = time, y = surv, color = obs)) + geom_stepribbon(aes(x = time, ymin = lower, ymax = upper, fill = obs), alpha = 0.3) + theme_bw()
+# })
+ output$survivalPlot_1 = renderPlot({
+   req(surv_fit_1())
+   plot(surv_fit_1(), ylab = "Probability of Survival", xlab = "Time",
+            col = c("red", "black", "black"), main = "Survival Curve")
+})
+
+ output$survivalPlot_2 = renderPlot({
+   req(surv_fit_2())
+   plot(surv_fit_2(), ylab = "Probability of Survival", xlab = "Time",
+            col = c("red", "black", "black"), main = "Survival Curve")
+})
+
 output$dataTable <- renderTable({
-  rv$df
+  new_patients()
 })
 ```
 
-
+:::
 
 ## Appendix
 
 
+### Testing Proportional Harzard
+
+:::{.panel-tabset}
+
+```{r, results='asis'}
+#| warning: false
+
+headings <- names(test_ph_list)
+for (i in seq_along(test_ph_list)) {
+  cat("# ",headings[i],"\n")
+  cat("```\n")
+  print(test_ph_list[[i]])
+  cat("\n```\n")
+  cat('\n\n')
+}
+```
+
+:::
