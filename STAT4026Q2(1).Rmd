@@ -10,7 +10,7 @@ library(readxl)
 library(tidyverse)
 library("survival")
 library("survminer")
-data = readxl::read_xlsx("/Users/betty/Desktop/240508_Survival_project_for_maths_students_opened.xlsx")
+data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
 ```
 
 ```{r}
