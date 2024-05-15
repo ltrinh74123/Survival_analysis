@@ -378,207 +378,251 @@ library(&quot;survminer&quot;)</code></pre>
 ## The following object is masked from &#39;package:survival&#39;:
 ## 
 ##     myeloma</code></pre>
-<pre class="r"><code>data = readxl::read_xlsx(&quot;/Users/betty/Desktop/240508_Survival_project_for_maths_students_opened.xlsx&quot;)</code></pre>
-<pre class="r"><code>data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+<pre class="r"><code>library(scales)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;scales&#39;
+## 
+## The following object is masked from &#39;package:purrr&#39;:
+## 
+##     discard
+## 
+## The following object is masked from &#39;package:readr&#39;:
+## 
+##     col_factor</code></pre>
+<pre class="r"><code>data = readxl::read_xlsx(&quot;240508_Survival_project_for_maths_students_opened.xlsx&quot;)</code></pre>
+<pre class="r"><code># data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
 data[data == 999.0] &lt;- NA
 data = data %&gt;% filter(!Diagnosis_number == 2.5)
 data$Diagnosis_number = as.factor(data$Diagnosis_number)
 data$`CBI::PercentSleepFCorrected` = as.numeric(data$`CBI::PercentSleepFCorrected`)</code></pre>
 <pre><code>## Warning: NAs introduced by coercion</code></pre>
+<pre class="r"><code>data$`CBI::PercentBeliefsFCorrected` = as.numeric(data$`CBI::PercentBeliefsFCorrected`)</code></pre>
+<pre><code>## Warning: NAs introduced by coercion</code></pre>
 <pre class="r"><code>#Non numeric variables
 non_numeric_vars &lt;- names(data)[!sapply(data, is.numeric)]
 #Delete non numeric variables
-df &lt;- data %&gt;% select(-&#39;PID&#39;, -&#39;Diagnosis_number&#39;, -&#39;SummaryPrimaryDiagnosis_descriptor&#39;, -&#39;Sex (Male 1, Female 2)&#39;, -&#39;CBI::PercentBeliefsFCorrected&#39;)
+df &lt;- data %&gt;% select(-&#39;PID&#39;, -&#39;Diagnosis_number&#39;, -`Onset till death`, -`Original_order`, -&#39;SummaryPrimaryDiagnosis_descriptor&#39;, -`DAD::ExportTotalIadls`, -`DAD::ExportTotalDad`, -`DAD::ExportTotalBadl`)
 #Standarize data
-data_standardized &lt;- scale(df)
-data_standardized &lt;- as.data.frame(data_standardized)</code></pre>
+data_standardized &lt;- as.data.frame(lapply(df, rescale), check.names = FALSE)</code></pre>
 <pre class="r"><code>#Combine non numeric variables
-data_stand &lt;- cbind(data_standardized, data$Diagnosis_number, data$`Sex (Male 1, Female 2)`, data$`CBI::PercentBeliefsFCorrected`)
+data_stand &lt;- cbind(data$Diagnosis_number, data_standardized)
 
 colnames(data_stand)[colnames(data_stand) == &quot;data$Diagnosis_number&quot;] &lt;- &quot;Diagnosis_number&quot;
 colnames(data_stand)[colnames(data_stand) == &quot;data$`Sex (Male 1, Female 2)`&quot;] &lt;- &quot;Sex (Male 1, Female 2)&quot;
-colnames(data_stand)[colnames(data_stand) == &quot;data$`CBI::PercentBeliefsFCorrected`&quot;] &lt;- &quot;CBI::PercentBeliefsFCorrected&quot;
-colnames(data_stand)[colnames(data_stand) == &quot;data$`CBI::PercentSleepFCorrected`&quot;] &lt;- &quot;CBI::PercentSleepFCorrected&quot;</code></pre>
-<pre class="r"><code>#Model
-m &lt;- coxph(Surv(`Diagnosis till death`) ~ strata(data$Diagnosis_number) + `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data = data_stand, model = TRUE)
-
-
-data_stand &lt;- na.omit(data_stand)
-data_stand$`Diagnosis till death` &lt;- as.numeric(data_stand$`Diagnosis till death`)
-numeric_columns &lt;- sapply(data_stand, is.numeric)
-data_stand[numeric_columns] &lt;- scale(data_stand[numeric_columns])
-library(car)</code></pre>
-<pre><code>## Loading required package: carData</code></pre>
+data_stand$`Sex (Male 1, Female 2)` = as.factor(data_stand$`Sex (Male 1, Female 2)`)
+# colnames(data_stand)[colnames(data_stand) == &quot;data$`CBI::PercentBeliefsFCorrected`&quot;] &lt;- &quot;CBI::PercentBeliefsFCorrected&quot;
+# colnames(data_stand)[colnames(data_stand) == &quot;data$`CBI::PercentSleepFCorrected`&quot;] &lt;- &quot;CBI::PercentSleepFCorrected&quot;</code></pre>
+<pre class="r"><code>library(survival)
+library(rms)  # one possible source for a `vif`-function .... there are many</code></pre>
+<pre><code>## Loading required package: Hmisc</code></pre>
 <pre><code>## 
-## Attaching package: &#39;car&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:dplyr&#39;:
+## Attaching package: &#39;Hmisc&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:dplyr&#39;:
 ## 
-##     recode</code></pre>
-<pre><code>## The following object is masked from &#39;package:purrr&#39;:
+##     src, summarize</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
 ## 
-##     some</code></pre>
-<pre class="r"><code>linear_model &lt;- lm(`Diagnosis till death` ~ ., data = data_stand)
-vif_values &lt;- vif(linear_model)</code></pre>
-<pre><code>## Warning in summary.lm(object, ...): essentially perfect fit: summary may be
-## unreliable</code></pre>
-<pre class="r"><code>vif_values</code></pre>
-<pre><code>##                                               GVIF Df GVIF^(1/(2*Df))
-## Original_order                           39.261423  1        6.265894
-## `Onset till death`                        4.111375  1        2.027653
-## `ClinicalAssessment::GoldmanScore`        1.373743  1        1.172068
-## EducationYearsTotal                       1.404240  1        1.185006
-## `Age at diagnosis`                        1.287541  1        1.134698
-## `Disease duration at diagnosis`           3.309593  1        1.819229
-## `ACEIII::ACEIIITotal`                 12271.511987  1      110.776857
-## `ACEIII::SubtotalAttention`             450.957953  1       21.235771
-## `ACEIII::SubtotalMemory`               1543.850209  1       39.291859
-## `ACEIII::SubtotalFluency`               464.614566  1       21.554920
-## `ACEIII::SubtotalLanguage`             1215.590010  1       34.865312
-## `ACEIII::SubtotalVisuospatial`          364.475871  1       19.091251
-## `CBI::PercentMemoryFCorrected`            3.269044  1        1.808050
-## `CBI::PercentEverydayFCorrected`          3.805449  1        1.950756
-## `CBI::PercentSelfCareFCorrected`          3.668475  1        1.915326
-## `CBI::PercentAbnormalFCorrected`          3.895627  1        1.973734
-## `CBI::PercentMoodFCorrected`              2.752588  1        1.659093
-## `CBI::PercentEatingFCorrected`            3.676252  1        1.917355
-## `CBI::PercentSleepFCorrected`             1.671256  1        1.292771
-## `CBI::PercentStereotypicalFCorrected`     3.279350  1        1.810898
-## `CBI::PercentMotivationFCorrected`        2.937042  1        1.713780
-## `DAD::ExportTotalIadls`                 623.427098  1       24.968522
-## `DAD::ExportTotalDad`                  1333.722220  1       36.520162
-## `DAD::ExportTotalBadl`                  216.286965  1       14.706698
-## Diagnosis_number                        729.528829  8        1.509872
-## `Sex (Male 1, Female 2)`                  1.433447  1        1.197266
-## `CBI::PercentBeliefsFCorrected`           7.496532 10        1.105969</code></pre>
-<pre class="r"><code>vif_df &lt;- as.data.frame(vif_values)
-str(vif_df)</code></pre>
-<pre><code>## &#39;data.frame&#39;:    27 obs. of  3 variables:
-##  $ GVIF           : num  39.26 4.11 1.37 1.4 1.29 ...
-##  $ Df             : num  1 1 1 1 1 1 1 1 1 1 ...
-##  $ GVIF^(1/(2*Df)): num  6.27 2.03 1.17 1.19 1.13 ...</code></pre>
-<pre class="r"><code>vif_values &lt;- vif_df$GVIF
-column_names &lt;- rownames(vif_df)
-vif_values &lt;- vif_df$GVIF
-high_vif &lt;- column_names[vif_values &gt; 10]
-data_stand_reduced &lt;- data_stand %&gt;% select(-&#39;Original_order&#39;, -&#39;ACEIII::ACEIIITotal&#39;, -&#39;ACEIII::SubtotalAttention&#39;, -&#39;ACEIII::SubtotalMemory&#39;, -&#39;ACEIII::SubtotalFluency&#39;, -&#39;ACEIII::SubtotalLanguage&#39;, -&#39;ACEIII::SubtotalVisuospatial&#39;, -&#39;DAD::ExportTotalIadls&#39;, -&#39;DAD::ExportTotalDad&#39;, -&#39;DAD::ExportTotalBadl&#39;, -&#39;Diagnosis_number&#39;, -&#39;CBI::PercentBeliefsFCorrected&#39;)
-m2 &lt;- coxph(
-  Surv(`Diagnosis till death`) ~ . + strata(`Sex (Male 1, Female 2)`), 
-  data = data_stand_reduced, 
-  model = TRUE
-)</code></pre>
-<pre><code>## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
-## Ran out of iterations and did not converge</code></pre>
-<pre class="r"><code>summary(m2)</code></pre>
+##     format.pval, units</code></pre>
+<pre class="r"><code>data_stand_no_high_vif = data_stand %&gt;% select(-c(`ACEIII::ACEIIITotal`))
+fit &lt;- coxph(Surv(`Diagnosis till death`) ~., data= data_stand_no_high_vif)
+fit</code></pre>
 <pre><code>## Call:
-## coxph(formula = Surv(`Diagnosis till death`) ~ . + strata(`Sex (Male 1, Female 2)`), 
-##     data = data_stand_reduced, model = TRUE)
+## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_no_high_vif)
 ## 
-##   n= 237, number of events= 237 
+##                                           coef exp(coef) se(coef)      z
+## Diagnosis_number2                      0.18556   1.20390  0.26124  0.710
+## Diagnosis_number3                      0.03493   1.03554  0.30545  0.114
+## Diagnosis_number4                      0.19559   1.21603  0.37217  0.526
+## Diagnosis_number9                      2.47078  11.83163  0.29773  8.299
+## Diagnosis_number10                     0.13635   1.14609  0.26984  0.505
+## Diagnosis_number12                     0.17064   1.18606  0.28780  0.593
+## Diagnosis_number14                     0.12621   1.13452  0.32318  0.391
+## Diagnosis_number16                     0.34136   1.40686  0.37037  0.922
+## `ClinicalAssessment::GoldmanScore`    -0.38037   0.68361  0.32548 -1.169
+## `Sex (Male 1, Female 2)`1             -0.03218   0.96833  0.14692 -0.219
+## EducationYearsTotal                    0.17751   1.19424  0.35974  0.493
+## `Age at diagnosis`                     1.45137   4.26896  0.48511  2.992
+## `Disease duration at diagnosis`       -1.11895   0.32662  0.61188 -1.829
+## `ACEIII::SubtotalAttention`           -2.36328   0.09411  0.59231 -3.990
+## `ACEIII::SubtotalMemory`               1.42119   4.14207  0.49496  2.871
+## `ACEIII::SubtotalFluency`             -1.45658   0.23303  0.33563 -4.340
+## `ACEIII::SubtotalLanguage`             0.65344   1.92214  0.60738  1.076
+## `ACEIII::SubtotalVisuospatial`         0.11480   1.12165  0.53012  0.217
+## `CBI::PercentMemoryFCorrected`        -1.40421   0.24556  0.47966 -2.928
+## `CBI::PercentEverydayFCorrected`       0.50492   1.65685  0.44138  1.144
+## `CBI::PercentSelfCareFCorrected`       1.14154   3.13158  0.46883  2.435
+## `CBI::PercentAbnormalFCorrected`       0.32162   1.37936  0.52372  0.614
+## `CBI::PercentMoodFCorrected`           0.15885   1.17217  0.50556  0.314
+## `CBI::PercentBeliefsFCorrected`        0.28822   1.33405  0.45545  0.633
+## `CBI::PercentEatingFCorrected`        -0.21681   0.80508  0.50051 -0.433
+## `CBI::PercentSleepFCorrected`          0.34907   1.41775  0.24967  1.398
+## `CBI::PercentStereotypicalFCorrected` -0.31148   0.73236  0.35458 -0.878
+## `CBI::PercentMotivationFCorrected`     0.58391   1.79303  0.34311  1.702
+##                                              p
+## Diagnosis_number2                      0.47750
+## Diagnosis_number3                      0.90896
+## Diagnosis_number4                      0.59921
+## Diagnosis_number9                      &lt; 2e-16
+## Diagnosis_number10                     0.61334
+## Diagnosis_number12                     0.55324
+## Diagnosis_number14                     0.69615
+## Diagnosis_number16                     0.35670
+## `ClinicalAssessment::GoldmanScore`     0.24255
+## `Sex (Male 1, Female 2)`1              0.82663
+## EducationYearsTotal                    0.62170
+## `Age at diagnosis`                     0.00277
+## `Disease duration at diagnosis`        0.06744
+## `ACEIII::SubtotalAttention`           6.61e-05
+## `ACEIII::SubtotalMemory`               0.00409
+## `ACEIII::SubtotalFluency`             1.43e-05
+## `ACEIII::SubtotalLanguage`             0.28201
+## `ACEIII::SubtotalVisuospatial`         0.82855
+## `CBI::PercentMemoryFCorrected`         0.00342
+## `CBI::PercentEverydayFCorrected`       0.25265
+## `CBI::PercentSelfCareFCorrected`       0.01490
+## `CBI::PercentAbnormalFCorrected`       0.53914
+## `CBI::PercentMoodFCorrected`           0.75336
+## `CBI::PercentBeliefsFCorrected`        0.52685
+## `CBI::PercentEatingFCorrected`         0.66488
+## `CBI::PercentSleepFCorrected`          0.16207
+## `CBI::PercentStereotypicalFCorrected`  0.37970
+## `CBI::PercentMotivationFCorrected`     0.08879
 ## 
-##                                              coef   exp(coef)    se(coef)
-## `Onset till death`                     -3.325e+02  3.863e-145   2.884e-01
-## `ClinicalAssessment::GoldmanScore`      2.216e-03   1.002e+00   1.760e-01
-## EducationYearsTotal                    -6.771e-02   9.345e-01   1.697e-01
-## `Age at diagnosis`                      6.698e-02   1.069e+00   1.588e-01
-## `Disease duration at diagnosis`         2.018e+02   4.383e+87   1.745e-01
-## `CBI::PercentMemoryFCorrected`          1.915e-01   1.211e+00   1.536e-01
-## `CBI::PercentEverydayFCorrected`       -4.325e-01   6.489e-01   1.806e-01
-## `CBI::PercentSelfCareFCorrected`        2.938e-01   1.341e+00   1.544e-01
-## `CBI::PercentAbnormalFCorrected`        3.904e-02   1.040e+00   1.677e-01
-## `CBI::PercentMoodFCorrected`           -4.789e-01   6.195e-01   1.805e-01
-## `CBI::PercentEatingFCorrected`         -5.128e-01   5.988e-01   1.605e-01
-## `CBI::PercentSleepFCorrected`           1.755e-01   1.192e+00   1.637e-01
-## `CBI::PercentStereotypicalFCorrected`   3.463e-01   1.414e+00   1.625e-01
-## `CBI::PercentMotivationFCorrected`      2.881e-01   1.334e+00   1.687e-01
-## `Sex (Male 1, Female 2)`2               0.000e+00   1.000e+00   0.000e+00
-##                                               z Pr(&gt;|z|)    
-## `Onset till death`                    -1153.066  &lt; 2e-16 ***
-## `ClinicalAssessment::GoldmanScore`        0.013  0.98996    
-## EducationYearsTotal                      -0.399  0.68988    
-## `Age at diagnosis`                        0.422  0.67315    
-## `Disease duration at diagnosis`        1156.184  &lt; 2e-16 ***
-## `CBI::PercentMemoryFCorrected`            1.247  0.21247    
-## `CBI::PercentEverydayFCorrected`         -2.396  0.01659 *  
-## `CBI::PercentSelfCareFCorrected`          1.902  0.05716 .  
-## `CBI::PercentAbnormalFCorrected`          0.233  0.81589    
-## `CBI::PercentMoodFCorrected`             -2.654  0.00796 ** 
-## `CBI::PercentEatingFCorrected`           -3.196  0.00140 ** 
-## `CBI::PercentSleepFCorrected`             1.072  0.28389    
-## `CBI::PercentStereotypicalFCorrected`     2.130  0.03315 *  
-## `CBI::PercentMotivationFCorrected`        1.707  0.08773 .  
-## `Sex (Male 1, Female 2)`2                   NaN      NaN    
+## Likelihood ratio test=173.6  on 28 df, p=&lt; 2.2e-16
+## n= 281, number of events= 281 
+##    (31 observations deleted due to missingness)</code></pre>
+<pre class="r"><code>vif &lt;- rms::vif(fit)
+vif</code></pre>
+<pre><code>##                     Diagnosis_number2                     Diagnosis_number3 
+##                              3.173982                              2.111510 
+##                     Diagnosis_number4                     Diagnosis_number9 
+##                              1.690222                              2.204344 
+##                    Diagnosis_number10                    Diagnosis_number12 
+##                              1.725741                              2.100204 
+##                    Diagnosis_number14                    Diagnosis_number16 
+##                              1.967580                              2.590044 
+##    `ClinicalAssessment::GoldmanScore`             `Sex (Male 1, Female 2)`1 
+##                              1.414221                              1.425984 
+##                   EducationYearsTotal                    `Age at diagnosis` 
+##                              1.299991                              1.299415 
+##       `Disease duration at diagnosis`           `ACEIII::SubtotalAttention` 
+##                              1.343187                              3.941753 
+##              `ACEIII::SubtotalMemory`             `ACEIII::SubtotalFluency` 
+##                              4.450069                              2.357482 
+##            `ACEIII::SubtotalLanguage`        `ACEIII::SubtotalVisuospatial` 
+##                              5.018349                              3.438249 
+##        `CBI::PercentMemoryFCorrected`      `CBI::PercentEverydayFCorrected` 
+##                              3.668447                              3.404240 
+##      `CBI::PercentSelfCareFCorrected`      `CBI::PercentAbnormalFCorrected` 
+##                              2.339399                              3.361684 
+##          `CBI::PercentMoodFCorrected`       `CBI::PercentBeliefsFCorrected` 
+##                              2.563871                              1.553555 
+##        `CBI::PercentEatingFCorrected`         `CBI::PercentSleepFCorrected` 
+##                              4.228166                              1.653673 
+## `CBI::PercentStereotypicalFCorrected`    `CBI::PercentMotivationFCorrected` 
+##                              3.128737                              3.043260</code></pre>
+<pre class="r"><code>summary(fit)</code></pre>
+<pre><code>## Call:
+## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_no_high_vif)
+## 
+##   n= 281, number of events= 281 
+##    (31 observations deleted due to missingness)
+## 
+##                                           coef exp(coef) se(coef)      z
+## Diagnosis_number2                      0.18556   1.20390  0.26124  0.710
+## Diagnosis_number3                      0.03493   1.03554  0.30545  0.114
+## Diagnosis_number4                      0.19559   1.21603  0.37217  0.526
+## Diagnosis_number9                      2.47078  11.83163  0.29773  8.299
+## Diagnosis_number10                     0.13635   1.14609  0.26984  0.505
+## Diagnosis_number12                     0.17064   1.18606  0.28780  0.593
+## Diagnosis_number14                     0.12621   1.13452  0.32318  0.391
+## Diagnosis_number16                     0.34136   1.40686  0.37037  0.922
+## `ClinicalAssessment::GoldmanScore`    -0.38037   0.68361  0.32548 -1.169
+## `Sex (Male 1, Female 2)`1             -0.03218   0.96833  0.14692 -0.219
+## EducationYearsTotal                    0.17751   1.19424  0.35974  0.493
+## `Age at diagnosis`                     1.45137   4.26896  0.48511  2.992
+## `Disease duration at diagnosis`       -1.11895   0.32662  0.61188 -1.829
+## `ACEIII::SubtotalAttention`           -2.36328   0.09411  0.59231 -3.990
+## `ACEIII::SubtotalMemory`               1.42119   4.14207  0.49496  2.871
+## `ACEIII::SubtotalFluency`             -1.45658   0.23303  0.33563 -4.340
+## `ACEIII::SubtotalLanguage`             0.65344   1.92214  0.60738  1.076
+## `ACEIII::SubtotalVisuospatial`         0.11480   1.12165  0.53012  0.217
+## `CBI::PercentMemoryFCorrected`        -1.40421   0.24556  0.47966 -2.928
+## `CBI::PercentEverydayFCorrected`       0.50492   1.65685  0.44138  1.144
+## `CBI::PercentSelfCareFCorrected`       1.14154   3.13158  0.46883  2.435
+## `CBI::PercentAbnormalFCorrected`       0.32162   1.37936  0.52372  0.614
+## `CBI::PercentMoodFCorrected`           0.15885   1.17217  0.50556  0.314
+## `CBI::PercentBeliefsFCorrected`        0.28822   1.33405  0.45545  0.633
+## `CBI::PercentEatingFCorrected`        -0.21681   0.80508  0.50051 -0.433
+## `CBI::PercentSleepFCorrected`          0.34907   1.41775  0.24967  1.398
+## `CBI::PercentStereotypicalFCorrected` -0.31148   0.73236  0.35458 -0.878
+## `CBI::PercentMotivationFCorrected`     0.58391   1.79303  0.34311  1.702
+##                                       Pr(&gt;|z|)    
+## Diagnosis_number2                      0.47750    
+## Diagnosis_number3                      0.90896    
+## Diagnosis_number4                      0.59921    
+## Diagnosis_number9                      &lt; 2e-16 ***
+## Diagnosis_number10                     0.61334    
+## Diagnosis_number12                     0.55324    
+## Diagnosis_number14                     0.69615    
+## Diagnosis_number16                     0.35670    
+## `ClinicalAssessment::GoldmanScore`     0.24255    
+## `Sex (Male 1, Female 2)`1              0.82663    
+## EducationYearsTotal                    0.62170    
+## `Age at diagnosis`                     0.00277 ** 
+## `Disease duration at diagnosis`        0.06744 .  
+## `ACEIII::SubtotalAttention`           6.61e-05 ***
+## `ACEIII::SubtotalMemory`               0.00409 ** 
+## `ACEIII::SubtotalFluency`             1.43e-05 ***
+## `ACEIII::SubtotalLanguage`             0.28201    
+## `ACEIII::SubtotalVisuospatial`         0.82855    
+## `CBI::PercentMemoryFCorrected`         0.00342 ** 
+## `CBI::PercentEverydayFCorrected`       0.25265    
+## `CBI::PercentSelfCareFCorrected`       0.01490 *  
+## `CBI::PercentAbnormalFCorrected`       0.53914    
+## `CBI::PercentMoodFCorrected`           0.75336    
+## `CBI::PercentBeliefsFCorrected`        0.52685    
+## `CBI::PercentEatingFCorrected`         0.66488    
+## `CBI::PercentSleepFCorrected`          0.16207    
+## `CBI::PercentStereotypicalFCorrected`  0.37970    
+## `CBI::PercentMotivationFCorrected`     0.08879 .  
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
-##                                        exp(coef) exp(-coef)  lower .95
-## `Onset till death`                    3.863e-145 2.589e+144 2.195e-145
-## `ClinicalAssessment::GoldmanScore`     1.002e+00  9.978e-01  7.098e-01
-## EducationYearsTotal                    9.345e-01  1.070e+00  6.701e-01
-## `Age at diagnosis`                     1.069e+00  9.352e-01  7.833e-01
-## `Disease duration at diagnosis`        4.383e+87  2.281e-88  3.113e+87
-## `CBI::PercentMemoryFCorrected`         1.211e+00  8.257e-01  8.963e-01
-## `CBI::PercentEverydayFCorrected`       6.489e-01  1.541e+00  4.555e-01
-## `CBI::PercentSelfCareFCorrected`       1.341e+00  7.454e-01  9.911e-01
-## `CBI::PercentAbnormalFCorrected`       1.040e+00  9.617e-01  7.485e-01
-## `CBI::PercentMoodFCorrected`           6.195e-01  1.614e+00  4.349e-01
-## `CBI::PercentEatingFCorrected`         5.988e-01  1.670e+00  4.372e-01
-## `CBI::PercentSleepFCorrected`          1.192e+00  8.391e-01  8.646e-01
-## `CBI::PercentStereotypicalFCorrected`  1.414e+00  7.073e-01  1.028e+00
-## `CBI::PercentMotivationFCorrected`     1.334e+00  7.497e-01  9.583e-01
-## `Sex (Male 1, Female 2)`2              1.000e+00  1.000e+00  1.000e+00
-##                                        upper .95
-## `Onset till death`                    6.797e-145
-## `ClinicalAssessment::GoldmanScore`     1.415e+00
-## EducationYearsTotal                    1.303e+00
-## `Age at diagnosis`                     1.460e+00
-## `Disease duration at diagnosis`        6.171e+87
-## `CBI::PercentMemoryFCorrected`         1.636e+00
-## `CBI::PercentEverydayFCorrected`       9.244e-01
-## `CBI::PercentSelfCareFCorrected`       1.816e+00
-## `CBI::PercentAbnormalFCorrected`       1.444e+00
-## `CBI::PercentMoodFCorrected`           8.823e-01
-## `CBI::PercentEatingFCorrected`         8.201e-01
-## `CBI::PercentSleepFCorrected`          1.643e+00
-## `CBI::PercentStereotypicalFCorrected`  1.944e+00
-## `CBI::PercentMotivationFCorrected`     1.857e+00
-## `Sex (Male 1, Female 2)`2              1.000e+00
+##                                       exp(coef) exp(-coef) lower .95 upper .95
+## Diagnosis_number2                       1.20390    0.83064   0.72148    2.0089
+## Diagnosis_number3                       1.03554    0.96568   0.56907    1.8844
+## Diagnosis_number4                       1.21603    0.82235   0.58634    2.5219
+## Diagnosis_number9                      11.83163    0.08452   6.60111   21.2066
+## Diagnosis_number10                      1.14609    0.87253   0.67535    1.9449
+## Diagnosis_number12                      1.18606    0.84313   0.67474    2.0849
+## Diagnosis_number14                      1.13452    0.88143   0.60218    2.1375
+## Diagnosis_number16                      1.40686    0.71081   0.68076    2.9074
+## `ClinicalAssessment::GoldmanScore`      0.68361    1.46282   0.36121    1.2938
+## `Sex (Male 1, Female 2)`1               0.96833    1.03270   0.72605    1.2915
+## EducationYearsTotal                     1.19424    0.83735   0.59004    2.4171
+## `Age at diagnosis`                      4.26896    0.23425   1.64966   11.0471
+## `Disease duration at diagnosis`         0.32662    3.06162   0.09845    1.0836
+## `ACEIII::SubtotalAttention`             0.09411   10.62571   0.02948    0.3005
+## `ACEIII::SubtotalMemory`                4.14207    0.24143   1.57002   10.9277
+## `ACEIII::SubtotalFluency`               0.23303    4.29125   0.12071    0.4499
+## `ACEIII::SubtotalLanguage`              1.92214    0.52025   0.58449    6.3210
+## `ACEIII::SubtotalVisuospatial`          1.12165    0.89154   0.39685    3.1703
+## `CBI::PercentMemoryFCorrected`          0.24556    4.07232   0.09591    0.6287
+## `CBI::PercentEverydayFCorrected`        1.65685    0.60355   0.69755    3.9354
+## `CBI::PercentSelfCareFCorrected`        3.13158    0.31933   1.24939    7.8493
+## `CBI::PercentAbnormalFCorrected`        1.37936    0.72497   0.49418    3.8500
+## `CBI::PercentMoodFCorrected`            1.17217    0.85312   0.43516    3.1574
+## `CBI::PercentBeliefsFCorrected`         1.33405    0.74960   0.54638    3.2573
+## `CBI::PercentEatingFCorrected`          0.80508    1.24211   0.30186    2.1472
+## `CBI::PercentSleepFCorrected`           1.41775    0.70534   0.86913    2.3127
+## `CBI::PercentStereotypicalFCorrected`   0.73236    1.36545   0.36551    1.4674
+## `CBI::PercentMotivationFCorrected`      1.79303    0.55771   0.91523    3.5127
 ## 
-## Concordance= 1  (se = 0 )
-## Likelihood ratio test= 1748  on 15 df,   p=&lt;2e-16
-## Wald test            = 2666358  on 15 df,   p=&lt;2e-16
-## Score (logrank) test = 406  on 15 df,   p=&lt;2e-16</code></pre>
-<pre class="r"><code>m2 &lt;- coxph(Surv(`Diagnosis till death`) ~ . + strata(`Diagnosis_number`) + strata(`Sex (Male 1, Female 2)`) + strata(`CBI::PercentBeliefsFCorrected`) + strata(`CBI::PercentSleepFCorrected`), data = data_stand, model = TRUE)</code></pre>
-<pre><code>## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
-## Ran out of iterations and did not converge</code></pre>
-<pre><code>## Warning in Surv(m1 + stemp * delta, y[, 1] + stemp * delta, y[, 2]): Stop time
-## must be &gt; start time, NA created</code></pre>
-<pre class="r"><code>#summary(m)</code></pre>
-<pre class="r"><code>data &lt;- data.frame(
-  Variable1 = c(10, 20, 30, 40, 50),
-  Variable2 = c(15, 25, 35, 45, 55),
-  Variable3 = c(20, 30, 40, 50, 60)
-)
-data</code></pre>
-<pre><code>##   Variable1 Variable2 Variable3
-## 1        10        15        20
-## 2        20        25        30
-## 3        30        35        40
-## 4        40        45        50
-## 5        50        55        60</code></pre>
-<pre class="r"><code>data_standardized &lt;- scale(data)
-data_standardized</code></pre>
-<pre><code>##       Variable1  Variable2  Variable3
-## [1,] -1.2649111 -1.2649111 -1.2649111
-## [2,] -0.6324555 -0.6324555 -0.6324555
-## [3,]  0.0000000  0.0000000  0.0000000
-## [4,]  0.6324555  0.6324555  0.6324555
-## [5,]  1.2649111  1.2649111  1.2649111
-## attr(,&quot;scaled:center&quot;)
-## Variable1 Variable2 Variable3 
-##        30        35        40 
-## attr(,&quot;scaled:scale&quot;)
-## Variable1 Variable2 Variable3 
-##  15.81139  15.81139  15.81139</code></pre>
+## Concordance= 0.738  (se = 0.016 )
+## Likelihood ratio test= 173.6  on 28 df,   p=&lt;2e-16
+## Wald test            = 185.7  on 28 df,   p=&lt;2e-16
+## Score (logrank) test = 225.9  on 28 df,   p=&lt;2e-16</code></pre>
 
 
 
