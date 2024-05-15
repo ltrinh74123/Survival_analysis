@@ -10,36 +10,46 @@ library(readxl)
 library(tidyverse)
 library("survival")
 library("survminer")
-data = readxl::read_xlsx("/Users/betty/Desktop/240508_Survival_project_for_maths_students_opened.xlsx")
+data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
 ```
 
 ```{r}
-data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+# data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
 data[data == 999.0] <- NA
 data = data %>% filter(!Diagnosis_number == 2.5)
 data$Diagnosis_number = as.factor(data$Diagnosis_number)
 data$`CBI::PercentSleepFCorrected` = as.numeric(data$`CBI::PercentSleepFCorrected`)
+data$`CBI::PercentBeliefsFCorrected` = as.numeric(data$`CBI::PercentBeliefsFCorrected`)
 ```
 
 ```{r}
 #Non numeric variables
 non_numeric_vars <- names(data)[!sapply(data, is.numeric)]
 #Delete non numeric variables
-df <- data %>% select(-'PID', -'Diagnosis_number', -'SummaryPrimaryDiagnosis_descriptor', -'Sex (Male 1, Female 2)', -'CBI::PercentBeliefsFCorrected')
+df <- data %>% select(-'PID', -'Diagnosis_number', -`Onset till death`, -`Original_order`, -'SummaryPrimaryDiagnosis_descriptor', -`DAD::ExportTotalIadls`,	-`DAD::ExportTotalDad`,	-`DAD::ExportTotalBadl`)
 #Standarize data
-data_standardized <- scale(df)
-data_standardized <- as.data.frame(data_standardized)
+data_standardized <- as.data.frame(lapply(df, rescale), check.names = FALSE)
 ```
 
 ```{r}
 #Combine non numeric variables
-data_stand <- cbind(data_standardized, data$Diagnosis_number, data$`Sex (Male 1, Female 2)`, data$`CBI::PercentBeliefsFCorrected`)
+data_stand <- cbind(data$Diagnosis_number, data_standardized)
 
 colnames(data_stand)[colnames(data_stand) == "data$Diagnosis_number"] <- "Diagnosis_number"
 colnames(data_stand)[colnames(data_stand) == "data$`Sex (Male 1, Female 2)`"] <- "Sex (Male 1, Female 2)"
-colnames(data_stand)[colnames(data_stand) == "data$`CBI::PercentBeliefsFCorrected`"] <- "CBI::PercentBeliefsFCorrected"
-colnames(data_stand)[colnames(data_stand) == "data$`CBI::PercentSleepFCorrected`"] <- "CBI::PercentSleepFCorrected"
+# colnames(data_stand)[colnames(data_stand) == "data$`CBI::PercentBeliefsFCorrected`"] <- "CBI::PercentBeliefsFCorrected"
+# colnames(data_stand)[colnames(data_stand) == "data$`CBI::PercentSleepFCorrected`"] <- "CBI::PercentSleepFCorrected"
 ```
+
+```{r}
+library(survival)
+library(rms)  # one possible source for a `vif`-function .... there are many
+data_stand_no_high_vif = data_stand %>% select(-c(`ACEIII::ACEIIITotal`))
+fit <- coxph(Surv(`Diagnosis till death`) ~., data= data_stand_no_high_vif)
+vif <- rms::vif(fit)
+vif
+```
+
 
 ```{r}
 #Model
@@ -52,6 +62,7 @@ numeric_columns <- sapply(data_stand, is.numeric)
 data_stand[numeric_columns] <- scale(data_stand[numeric_columns])
 library(car)
 linear_model <- lm(`Diagnosis till death` ~ ., data = data_stand)
+
 vif_values <- vif(linear_model)
 vif_values
 vif_df <- as.data.frame(vif_values)
