@@ -37,6 +37,7 @@ data_stand <- cbind(data$Diagnosis_number, data_standardized)
 
 colnames(data_stand)[colnames(data_stand) == "data$Diagnosis_number"] <- "Diagnosis_number"
 colnames(data_stand)[colnames(data_stand) == "data$`Sex (Male 1, Female 2)`"] <- "Sex (Male 1, Female 2)"
+data_stand$`Sex (Male 1, Female 2)` = as.factor(data_stand$`Sex (Male 1, Female 2)`)
 # colnames(data_stand)[colnames(data_stand) == "data$`CBI::PercentBeliefsFCorrected`"] <- "CBI::PercentBeliefsFCorrected"
 # colnames(data_stand)[colnames(data_stand) == "data$`CBI::PercentSleepFCorrected`"] <- "CBI::PercentSleepFCorrected"
 ```
@@ -46,6 +47,7 @@ library(survival)
 library(rms)  # one possible source for a `vif`-function .... there are many
 data_stand_no_high_vif = data_stand %>% select(-c(`ACEIII::ACEIIITotal`))
 fit <- coxph(Surv(`Diagnosis till death`) ~., data= data_stand_no_high_vif)
+fit
 vif <- rms::vif(fit)
 vif
 ```
