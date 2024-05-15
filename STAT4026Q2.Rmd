@@ -18,13 +18,14 @@ data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
 data[data == 999.0] <- NA
 data = data %>% filter(!Diagnosis_number == 2.5)
 data$Diagnosis_number = as.factor(data$Diagnosis_number)
+data$`CBI::PercentSleepFCorrected` = as.numeric(data$`CBI::PercentSleepFCorrected`)
 ```
 
 ```{r}
 #Non numeric variables
 non_numeric_vars <- names(data)[!sapply(data, is.numeric)]
 #Delete non numeric variables
-df <- data %>% select(-'PID', -'Diagnosis_number', -'SummaryPrimaryDiagnosis_descriptor', -'Sex (Male 1, Female 2)', -'CBI::PercentBeliefsFCorrected', -'CBI::PercentSleepFCorrected')
+df <- data %>% select(-'PID', -'Diagnosis_number', -'SummaryPrimaryDiagnosis_descriptor', -'Sex (Male 1, Female 2)', -'CBI::PercentBeliefsFCorrected')
 #Standarize data
 data_standardized <- scale(df)
 data_standardized <- as.data.frame(data_standardized)
@@ -32,7 +33,7 @@ data_standardized <- as.data.frame(data_standardized)
 
 ```{r}
 #Combine non numeric variables
-data_stand <- cbind(data_standardized, data$Diagnosis_number, data$`Sex (Male 1, Female 2)`, data$`CBI::PercentBeliefsFCorrected`, data$`CBI::PercentSleepFCorrected`)
+data_stand <- cbind(data_standardized, data$Diagnosis_number, data$`Sex (Male 1, Female 2)`, data$`CBI::PercentBeliefsFCorrected`)
 
 colnames(data_stand)[colnames(data_stand) == "data$Diagnosis_number"] <- "Diagnosis_number"
 colnames(data_stand)[colnames(data_stand) == "data$`Sex (Male 1, Female 2)`"] <- "Sex (Male 1, Female 2)"
@@ -61,7 +62,7 @@ vif_values <- vif_df$GVIF
 high_vif <- column_names[vif_values > 10]
 data_stand_reduced <- data_stand %>% select(-'Original_order', -'ACEIII::ACEIIITotal', -'ACEIII::SubtotalAttention', -'ACEIII::SubtotalMemory', -'ACEIII::SubtotalFluency', -'ACEIII::SubtotalLanguage', -'ACEIII::SubtotalVisuospatial', -'DAD::ExportTotalIadls', -'DAD::ExportTotalDad', -'DAD::ExportTotalBadl', -'Diagnosis_number', -'CBI::PercentBeliefsFCorrected')
 m2 <- coxph(
-  Surv(`Diagnosis till death`) ~ . + strata(`Sex (Male 1, Female 2)`) + strata(`CBI::PercentSleepFCorrected`), 
+  Surv(`Diagnosis till death`) ~ . + strata(`Sex (Male 1, Female 2)`), 
   data = data_stand_reduced, 
   model = TRUE
 )
