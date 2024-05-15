@@ -14,20 +14,32 @@ data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx
 ```
 
 ```{r}
-data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+# data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
 data[data == 999.0] <- NA
 data = data %>% filter(!Diagnosis_number == 2.5)
 data$Diagnosis_number = as.factor(data$Diagnosis_number)
+data$`CBI::PercentBeliefsFCorrected` = gsub("\\?", NA, data$`CBI::PercentBeliefsFCorrected`)
+data$`CBI::PercentSleepFCorrected` = gsub("\\?", NA, data$`CBI::PercentSleepFCorrected`)
+data_of_interest = data[7:28]
+diagnosis_number = data[6]
+data_of_interest
 ```
 
 ```{r}
 #Non numeric variables
+library(scales)
+
 non_numeric_vars <- names(data)[!sapply(data, is.numeric)]
+data$`CBI::PercentBeliefsFCorrected` = as.numeric(data$`CBI::PercentBeliefsFCorrected`)
+data$`CBI::PercentSleepFCorrected` = as.numeric(data$`CBI::PercentSleepFCorrected`)
 #Delete non numeric variables
-df <- data %>% select(-'Diagnosis_number', -'SummaryPrimaryDiagnosis_descriptor', -'Sex (Male 1, Female 2)', -'CBI::PercentBeliefsFCorrected', -'CBI::PercentSleepFCorrected')
+df <- data %>% select(-'Diagnosis_number', -'SummaryPrimaryDiagnosis_descriptor')
 #Standarize data
-data_standardized <- scale(df)
-data_standardized <- as.data.frame(data_standardized)
+# data_standardized <- scale(df)
+data_standardized <- as.data.frame(lapply(df, rescale))
+
+# data_standardized <- as.data.frame(data_standardized)
+
 ```
 
 ```{r}
@@ -67,6 +79,10 @@ m2 <- coxph(Surv(`Diagnosis till death`) ~ . + strata(`Diagnosis_number`) + stra
 
 
 #summary(m)
+```
+
+```{r}
+data_stand_interested_variable = data_stand_interested_variable[7:23]
 ```
 
 
