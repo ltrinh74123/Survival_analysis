@@ -38,6 +38,8 @@ suppressMessages({
     library(survival)
     library(dplyr)
     library(kableExtra)
+    library(scales)
+    library(ggcorrplot)
   })
 })
 
@@ -249,6 +251,134 @@ ggplot(data = new_patients()) + geom_step(aes(x = time, y = surv, color = obs), 
 
 ```
 
+## Significance of variables
+
+```{r}
+
+
+suppressMessages({
+  suppressWarnings({
+library(rms) #Important: Leave library RMS here to not break shiny
+})
+})
+
+
+data$`CBI::PercentSleepFCorrected` = as.numeric(data$`CBI::PercentSleepFCorrected`)
+data$`CBI::PercentBeliefsFCorrected` = as.numeric(data$`CBI::PercentBeliefsFCorrected`)
+df <- data %>% select(-'PID', -`Diagnosis_name`, -'Diagnosis_number', -`Diagnosis till death`, -`Sex (Male 1, Female 2)`, -`Onset till death`, -`Original_order`, -'SummaryPrimaryDiagnosis_descriptor', -`DAD::ExportTotalIadls`,	-`DAD::ExportTotalDad`,	-`DAD::ExportTotalBadl`)
+data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+
+
+#Standarize data
+data_standardized <- as.data.frame(lapply(df, scale), check.names = FALSE)
+
+data_stand <- cbind(data$Diagnosis_name, data$`Diagnosis till death`, data$`Sex (Male 1, Female 2)`, data_standardized)
+
+colnames(data_stand)[colnames(data_stand) == "data$Diagnosis_name"] <- "Diagnosis_name"
+colnames(data_stand)[colnames(data_stand) == "data$`Sex (Male 1, Female 2)`"] <- "Sex (Male 1, Female 2)"
+colnames(data_stand)[colnames(data_stand) == "data$`Diagnosis till death`"] <- "Diagnosis till death"
+
+data_stand = data_stand %>% drop_na()
+```
+
+
+
+```{r}
+# colnames(data_stand_no_high_vif)
+data_stand_no_high_vif = data_stand %>% select(-c(`ACEIII::ACEIIITotal`))
+fit <- survreg(Surv(`Diagnosis till death`) ~ ., data = data_stand_no_high_vif, dist = "lognormal")
+
+# fit <- coxph(Surv(`Diagnosis till death`) ~., data= data_stand_no_high_vif)
+vif <- rms::vif(fit)
+```
+
+```{r, fig.width= 16, fig.height=12}
+
+colnames(data_stand_no_high_vif) = gsub("FCorrected", "", colnames(data_stand_no_high_vif))
+colnames(data_stand_no_high_vif) = gsub("ClinicalAssessment::", "", colnames(data_stand_no_high_vif))
+
+corr<-cor(data_stand_no_high_vif[4:21])
+ggcorrplot(corr, type = "lower", ggtheme = ggplot2::theme_void, lab = TRUE,
+    colors = c("#6D9EC1", "white", "#E46726")
+  ) + scale_y_discrete(position='right')
+```
+
+### Overall significance for all dementia diagnosis
+```{r}
+summary_cox_full <- summary(fit)
+
+coefs <- summary_cox_full$table %>% as.data.frame()
+
+# coefs <- summary_cox_full$coefficients %>% as.data.frame()
+rownames(coefs)<- sub("`", "", rownames(coefs)) 
+rownames(coefs)<- sub("`", " ", rownames(coefs)) 
+colnames(coefs) <- c("Coefficient", "Std. Error", "z value", "p value")
+significant_vars <- coefs[coefs[, "p value"] < 0.05, ]
+significant_vars_sorted <- significant_vars[order(abs(significant_vars[,"Coefficient"]), decreasing = TRUE), ]
+
+
+# colnames(significant_vars_sorted) <- c("Coefficient","Exp(Coefficient)", "Std. Error", "z value", "P Value")
+styled_table <- significant_vars_sorted %>% kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+styled_table 
+```
+
+### Significance of variabes by dementia group
+
+```{r}
+
+significant_vars_list = list()
+
+for (name in unique_dx) {
+  data_stand_filtered = data_stand_no_high_vif %>% filter(Diagnosis_name == name)
+  data_stand_filtered = data_stand_filtered %>% select(-Diagnosis_name)
+  fit <- survreg(Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered, dist = "lognormal")
+  diagnosis_fit <- summary(fit)
+  coefs <- diagnosis_fit$table %>% as.data.frame()
+  coefs = coefs %>% drop_na()
+  rownames(coefs)<- sub("`", "", rownames(coefs))
+  rownames(coefs)<- sub("`", " ", rownames(coefs))
+  colnames(coefs) <- c("Coefficient", "Std. Error", "z value", "p value")
+  significant_vars <- coefs[coefs[, "p value"] < 0.05, ]
+  significant_vars_sorted <- significant_vars[order(abs(significant_vars[,"Coefficient"]), decreasing = TRUE), ]
+  significant_vars_list[[name]] = significant_vars_sorted
+
+}
+
+```
+
+
+<!-- ```{r} -->
+<!-- data_stand_filtered_p = data_stand_no_high_vif %>% filter(Diagnosis_name == "nfvPPA + Parkinson’s plus") -->
+<!-- data_stand_filtered_p = data_stand_filtered_p %>% select(-Diagnosis_name) -->
+<!-- fit <- survreg(Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered_p, dist = "lognormal") -->
+<!-- diagnosis_fit <- summary(fit) -->
+<!-- coefs <- diagnosis_fit$table %>% as.data.frame() -->
+<!-- rownames(coefs)<- sub("`", "", rownames(coefs)) -->
+<!-- rownames(coefs)<- sub("`", " ", rownames(coefs)) -->
+<!-- colnames(coefs) <- c("Coefficient", "Std. Error", "z value", "P Value") -->
+<!-- significant_vars <- coefs[coefs[, "P Value"] < 0.05, ] -->
+<!-- significant_vars_sorted <- significant_vars[order(abs(significant_vars[,"Coefficient"]), decreasing = TRUE), ] -->
+<!-- significant_vars_list[[name]] = significant_vars_sorted -->
+
+<!-- ``` -->
+
+:::{.panel-tabset}
+
+```{r, results='asis'}
+#| warning: false
+
+headings <- names(significant_vars_list)
+
+for (i in seq_along(significant_vars_list)) {
+  cat("# ", headings[i], "\n")
+  print(kable(significant_vars_list[[i]], format = "markdown") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")))
+  cat("\n\n")}
+
+```
+
+:::
 
 
 
