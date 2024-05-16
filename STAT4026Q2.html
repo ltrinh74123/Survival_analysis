@@ -398,16 +398,19 @@ data$`CBI::PercentSleepFCorrected` = as.numeric(data$`CBI::PercentSleepFCorrecte
 <pre><code>## Warning: NAs introduced by coercion</code></pre>
 <pre class="r"><code>data$`CBI::PercentBeliefsFCorrected` = as.numeric(data$`CBI::PercentBeliefsFCorrected`)</code></pre>
 <pre><code>## Warning: NAs introduced by coercion</code></pre>
+<pre class="r"><code>mapping_vector &lt;- c(&quot;AD&quot;, &quot;lvPPA&quot;, &quot;bvFTD&quot;, &quot;svPPA&quot;, &quot;nfvPPA&quot;, &quot;nfvPPA + Parkinson’s plus&quot;, &quot;CBS&quot;, &quot;PSP&quot;, &quot;FTD-MND&quot;)
+names(mapping_vector) &lt;- c(&quot;1&quot;, &quot;10&quot;, &quot;2&quot;, &quot;16&quot;, &quot;12&quot;, &quot;4&quot;, &quot;3&quot;, &quot;14&quot;, &quot;9&quot;)
+data$Diagnosis_name &lt;- mapping_vector[as.character(data$Diagnosis_number)]</code></pre>
 <pre class="r"><code>#Non numeric variables
 non_numeric_vars &lt;- names(data)[!sapply(data, is.numeric)]
 #Delete non numeric variables
-df &lt;- data %&gt;% select(-&#39;PID&#39;, -&#39;Diagnosis_number&#39;, -`Onset till death`, -`Original_order`, -&#39;SummaryPrimaryDiagnosis_descriptor&#39;, -`DAD::ExportTotalIadls`, -`DAD::ExportTotalDad`, -`DAD::ExportTotalBadl`)
+df &lt;- data %&gt;% select(-&#39;PID&#39;, -`Diagnosis_name`, -&#39;Diagnosis_number&#39;, -`Onset till death`, -`Original_order`, -&#39;SummaryPrimaryDiagnosis_descriptor&#39;, -`DAD::ExportTotalIadls`,  -`DAD::ExportTotalDad`, -`DAD::ExportTotalBadl`)
 #Standarize data
 data_standardized &lt;- as.data.frame(lapply(df, rescale), check.names = FALSE)</code></pre>
 <pre class="r"><code>#Combine non numeric variables
-data_stand &lt;- cbind(data$Diagnosis_number, data_standardized)
+data_stand &lt;- cbind(data$Diagnosis_name, data_standardized)
 
-colnames(data_stand)[colnames(data_stand) == &quot;data$Diagnosis_number&quot;] &lt;- &quot;Diagnosis_number&quot;
+colnames(data_stand)[colnames(data_stand) == &quot;data$Diagnosis_name&quot;] &lt;- &quot;Diagnosis_name&quot;
 colnames(data_stand)[colnames(data_stand) == &quot;data$`Sex (Male 1, Female 2)`&quot;] &lt;- &quot;Sex (Male 1, Female 2)&quot;
 data_stand$`Sex (Male 1, Female 2)` = as.factor(data_stand$`Sex (Male 1, Female 2)`)
 # colnames(data_stand)[colnames(data_stand) == &quot;data$`CBI::PercentBeliefsFCorrected`&quot;] &lt;- &quot;CBI::PercentBeliefsFCorrected&quot;
@@ -429,200 +432,575 @@ fit</code></pre>
 <pre><code>## Call:
 ## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_no_high_vif)
 ## 
-##                                           coef exp(coef) se(coef)      z
-## Diagnosis_number2                      0.18556   1.20390  0.26124  0.710
-## Diagnosis_number3                      0.03493   1.03554  0.30545  0.114
-## Diagnosis_number4                      0.19559   1.21603  0.37217  0.526
-## Diagnosis_number9                      2.47078  11.83163  0.29773  8.299
-## Diagnosis_number10                     0.13635   1.14609  0.26984  0.505
-## Diagnosis_number12                     0.17064   1.18606  0.28780  0.593
-## Diagnosis_number14                     0.12621   1.13452  0.32318  0.391
-## Diagnosis_number16                     0.34136   1.40686  0.37037  0.922
-## `ClinicalAssessment::GoldmanScore`    -0.38037   0.68361  0.32548 -1.169
-## `Sex (Male 1, Female 2)`1             -0.03218   0.96833  0.14692 -0.219
-## EducationYearsTotal                    0.17751   1.19424  0.35974  0.493
-## `Age at diagnosis`                     1.45137   4.26896  0.48511  2.992
-## `Disease duration at diagnosis`       -1.11895   0.32662  0.61188 -1.829
-## `ACEIII::SubtotalAttention`           -2.36328   0.09411  0.59231 -3.990
-## `ACEIII::SubtotalMemory`               1.42119   4.14207  0.49496  2.871
-## `ACEIII::SubtotalFluency`             -1.45658   0.23303  0.33563 -4.340
-## `ACEIII::SubtotalLanguage`             0.65344   1.92214  0.60738  1.076
-## `ACEIII::SubtotalVisuospatial`         0.11480   1.12165  0.53012  0.217
-## `CBI::PercentMemoryFCorrected`        -1.40421   0.24556  0.47966 -2.928
-## `CBI::PercentEverydayFCorrected`       0.50492   1.65685  0.44138  1.144
-## `CBI::PercentSelfCareFCorrected`       1.14154   3.13158  0.46883  2.435
-## `CBI::PercentAbnormalFCorrected`       0.32162   1.37936  0.52372  0.614
-## `CBI::PercentMoodFCorrected`           0.15885   1.17217  0.50556  0.314
-## `CBI::PercentBeliefsFCorrected`        0.28822   1.33405  0.45545  0.633
-## `CBI::PercentEatingFCorrected`        -0.21681   0.80508  0.50051 -0.433
-## `CBI::PercentSleepFCorrected`          0.34907   1.41775  0.24967  1.398
-## `CBI::PercentStereotypicalFCorrected` -0.31148   0.73236  0.35458 -0.878
-## `CBI::PercentMotivationFCorrected`     0.58391   1.79303  0.34311  1.702
-##                                              p
-## Diagnosis_number2                      0.47750
-## Diagnosis_number3                      0.90896
-## Diagnosis_number4                      0.59921
-## Diagnosis_number9                      &lt; 2e-16
-## Diagnosis_number10                     0.61334
-## Diagnosis_number12                     0.55324
-## Diagnosis_number14                     0.69615
-## Diagnosis_number16                     0.35670
-## `ClinicalAssessment::GoldmanScore`     0.24255
-## `Sex (Male 1, Female 2)`1              0.82663
-## EducationYearsTotal                    0.62170
-## `Age at diagnosis`                     0.00277
-## `Disease duration at diagnosis`        0.06744
-## `ACEIII::SubtotalAttention`           6.61e-05
-## `ACEIII::SubtotalMemory`               0.00409
-## `ACEIII::SubtotalFluency`             1.43e-05
-## `ACEIII::SubtotalLanguage`             0.28201
-## `ACEIII::SubtotalVisuospatial`         0.82855
-## `CBI::PercentMemoryFCorrected`         0.00342
-## `CBI::PercentEverydayFCorrected`       0.25265
-## `CBI::PercentSelfCareFCorrected`       0.01490
-## `CBI::PercentAbnormalFCorrected`       0.53914
-## `CBI::PercentMoodFCorrected`           0.75336
-## `CBI::PercentBeliefsFCorrected`        0.52685
-## `CBI::PercentEatingFCorrected`         0.66488
-## `CBI::PercentSleepFCorrected`          0.16207
-## `CBI::PercentStereotypicalFCorrected`  0.37970
-## `CBI::PercentMotivationFCorrected`     0.08879
+##                                             coef exp(coef) se(coef)      z
+## Diagnosis_namebvFTD                      0.18556   1.20390  0.26124  0.710
+## Diagnosis_nameCBS                        0.03493   1.03554  0.30545  0.114
+## Diagnosis_nameFTD-MND                    2.47078  11.83163  0.29773  8.299
+## Diagnosis_namelvPPA                      0.13635   1.14609  0.26984  0.505
+## Diagnosis_namenfvPPA                     0.17064   1.18606  0.28780  0.593
+## Diagnosis_namenfvPPA + Parkinson’s plus  0.19559   1.21603  0.37217  0.526
+## Diagnosis_namePSP                        0.12621   1.13452  0.32318  0.391
+## Diagnosis_namesvPPA                      0.34136   1.40686  0.37037  0.922
+## `ClinicalAssessment::GoldmanScore`      -0.38037   0.68361  0.32548 -1.169
+## `Sex (Male 1, Female 2)`1               -0.03218   0.96833  0.14692 -0.219
+## EducationYearsTotal                      0.17751   1.19424  0.35974  0.493
+## `Age at diagnosis`                       1.45137   4.26896  0.48511  2.992
+## `Disease duration at diagnosis`         -1.11895   0.32662  0.61188 -1.829
+## `ACEIII::SubtotalAttention`             -2.36328   0.09411  0.59231 -3.990
+## `ACEIII::SubtotalMemory`                 1.42119   4.14207  0.49496  2.871
+## `ACEIII::SubtotalFluency`               -1.45658   0.23303  0.33563 -4.340
+## `ACEIII::SubtotalLanguage`               0.65344   1.92214  0.60738  1.076
+## `ACEIII::SubtotalVisuospatial`           0.11480   1.12165  0.53012  0.217
+## `CBI::PercentMemoryFCorrected`          -1.40421   0.24556  0.47966 -2.928
+## `CBI::PercentEverydayFCorrected`         0.50492   1.65685  0.44138  1.144
+## `CBI::PercentSelfCareFCorrected`         1.14154   3.13158  0.46883  2.435
+## `CBI::PercentAbnormalFCorrected`         0.32162   1.37936  0.52372  0.614
+## `CBI::PercentMoodFCorrected`             0.15885   1.17217  0.50556  0.314
+## `CBI::PercentBeliefsFCorrected`          0.28822   1.33405  0.45545  0.633
+## `CBI::PercentEatingFCorrected`          -0.21681   0.80508  0.50051 -0.433
+## `CBI::PercentSleepFCorrected`            0.34907   1.41775  0.24967  1.398
+## `CBI::PercentStereotypicalFCorrected`   -0.31148   0.73236  0.35458 -0.878
+## `CBI::PercentMotivationFCorrected`       0.58391   1.79303  0.34311  1.702
+##                                                p
+## Diagnosis_namebvFTD                      0.47750
+## Diagnosis_nameCBS                        0.90896
+## Diagnosis_nameFTD-MND                    &lt; 2e-16
+## Diagnosis_namelvPPA                      0.61334
+## Diagnosis_namenfvPPA                     0.55324
+## Diagnosis_namenfvPPA + Parkinson’s plus  0.59921
+## Diagnosis_namePSP                        0.69615
+## Diagnosis_namesvPPA                      0.35670
+## `ClinicalAssessment::GoldmanScore`       0.24255
+## `Sex (Male 1, Female 2)`1                0.82663
+## EducationYearsTotal                      0.62170
+## `Age at diagnosis`                       0.00277
+## `Disease duration at diagnosis`          0.06744
+## `ACEIII::SubtotalAttention`             6.61e-05
+## `ACEIII::SubtotalMemory`                 0.00409
+## `ACEIII::SubtotalFluency`               1.43e-05
+## `ACEIII::SubtotalLanguage`               0.28201
+## `ACEIII::SubtotalVisuospatial`           0.82855
+## `CBI::PercentMemoryFCorrected`           0.00342
+## `CBI::PercentEverydayFCorrected`         0.25265
+## `CBI::PercentSelfCareFCorrected`         0.01490
+## `CBI::PercentAbnormalFCorrected`         0.53914
+## `CBI::PercentMoodFCorrected`             0.75336
+## `CBI::PercentBeliefsFCorrected`          0.52685
+## `CBI::PercentEatingFCorrected`           0.66488
+## `CBI::PercentSleepFCorrected`            0.16207
+## `CBI::PercentStereotypicalFCorrected`    0.37970
+## `CBI::PercentMotivationFCorrected`       0.08879
 ## 
 ## Likelihood ratio test=173.6  on 28 df, p=&lt; 2.2e-16
 ## n= 281, number of events= 281 
 ##    (31 observations deleted due to missingness)</code></pre>
 <pre class="r"><code>vif &lt;- rms::vif(fit)
 vif</code></pre>
-<pre><code>##                     Diagnosis_number2                     Diagnosis_number3 
-##                              3.173982                              2.111510 
-##                     Diagnosis_number4                     Diagnosis_number9 
-##                              1.690222                              2.204344 
-##                    Diagnosis_number10                    Diagnosis_number12 
-##                              1.725741                              2.100204 
-##                    Diagnosis_number14                    Diagnosis_number16 
-##                              1.967580                              2.590044 
-##    `ClinicalAssessment::GoldmanScore`             `Sex (Male 1, Female 2)`1 
-##                              1.414221                              1.425984 
-##                   EducationYearsTotal                    `Age at diagnosis` 
-##                              1.299991                              1.299415 
-##       `Disease duration at diagnosis`           `ACEIII::SubtotalAttention` 
-##                              1.343187                              3.941753 
-##              `ACEIII::SubtotalMemory`             `ACEIII::SubtotalFluency` 
-##                              4.450069                              2.357482 
-##            `ACEIII::SubtotalLanguage`        `ACEIII::SubtotalVisuospatial` 
-##                              5.018349                              3.438249 
-##        `CBI::PercentMemoryFCorrected`      `CBI::PercentEverydayFCorrected` 
-##                              3.668447                              3.404240 
-##      `CBI::PercentSelfCareFCorrected`      `CBI::PercentAbnormalFCorrected` 
-##                              2.339399                              3.361684 
-##          `CBI::PercentMoodFCorrected`       `CBI::PercentBeliefsFCorrected` 
-##                              2.563871                              1.553555 
-##        `CBI::PercentEatingFCorrected`         `CBI::PercentSleepFCorrected` 
-##                              4.228166                              1.653673 
-## `CBI::PercentStereotypicalFCorrected`    `CBI::PercentMotivationFCorrected` 
-##                              3.128737                              3.043260</code></pre>
-<pre class="r"><code>summary(fit)</code></pre>
+<pre><code>##                     Diagnosis_namebvFTD                       Diagnosis_nameCBS 
+##                                3.173982                                2.111510 
+##                   Diagnosis_nameFTD-MND                     Diagnosis_namelvPPA 
+##                                2.204344                                1.725741 
+##                    Diagnosis_namenfvPPA Diagnosis_namenfvPPA + Parkinson’s plus 
+##                                2.100204                                1.690222 
+##                       Diagnosis_namePSP                     Diagnosis_namesvPPA 
+##                                1.967580                                2.590044 
+##      `ClinicalAssessment::GoldmanScore`               `Sex (Male 1, Female 2)`1 
+##                                1.414221                                1.425984 
+##                     EducationYearsTotal                      `Age at diagnosis` 
+##                                1.299991                                1.299415 
+##         `Disease duration at diagnosis`             `ACEIII::SubtotalAttention` 
+##                                1.343187                                3.941753 
+##                `ACEIII::SubtotalMemory`               `ACEIII::SubtotalFluency` 
+##                                4.450069                                2.357482 
+##              `ACEIII::SubtotalLanguage`          `ACEIII::SubtotalVisuospatial` 
+##                                5.018349                                3.438249 
+##          `CBI::PercentMemoryFCorrected`        `CBI::PercentEverydayFCorrected` 
+##                                3.668447                                3.404240 
+##        `CBI::PercentSelfCareFCorrected`        `CBI::PercentAbnormalFCorrected` 
+##                                2.339399                                3.361684 
+##            `CBI::PercentMoodFCorrected`         `CBI::PercentBeliefsFCorrected` 
+##                                2.563871                                1.553555 
+##          `CBI::PercentEatingFCorrected`           `CBI::PercentSleepFCorrected` 
+##                                4.228166                                1.653673 
+##   `CBI::PercentStereotypicalFCorrected`      `CBI::PercentMotivationFCorrected` 
+##                                3.128737                                3.043260</code></pre>
+<pre class="r"><code>coefs &lt;- summary(fit)$coefficients
+
+coef_df &lt;- data.frame(
+  Coefficient = coefs[, &quot;coef&quot;],
+  AbsCoefficient = abs(coefs[, &quot;coef&quot;]),
+  PValue = coefs[, &quot;Pr(&gt;|z|)&quot;]
+)
+
+sorted_coef_df &lt;- coef_df[order(-coef_df$AbsCoefficient),]
+top_8_variables &lt;- head(sorted_coef_df, 8)
+
+print(top_8_variables)</code></pre>
+<pre><code>##                                  Coefficient AbsCoefficient       PValue
+## Diagnosis_nameFTD-MND               2.470776       2.470776 1.052194e-16
+## `ACEIII::SubtotalAttention`        -2.363277       2.363277 6.609238e-05
+## `ACEIII::SubtotalFluency`          -1.456578       1.456578 1.425531e-05
+## `Age at diagnosis`                  1.451371       1.451371 2.773041e-03
+## `ACEIII::SubtotalMemory`            1.421195       1.421195 4.087517e-03
+## `CBI::PercentMemoryFCorrected`     -1.404212       1.404212 3.416514e-03
+## `CBI::PercentSelfCareFCorrected`    1.141537       1.141537 1.489680e-02
+## `Disease duration at diagnosis`    -1.118945       1.118945 6.744232e-02</code></pre>
+<pre class="r"><code>unique_diagnosis= data$Diagnosis_name %&gt;% unique()
+for (name in unique_diagnosis) {
+  data_stand_filtered = data_stand_no_high_vif %&gt;% filter(Diagnosis_name == name)
+  data_stand_filtered = data_stand_filtered %&gt;% select(-Diagnosis_name)
+  fit &lt;- coxph(Surv(`Diagnosis till death`) ~., data= data_stand_filtered)
+  print(fit)
+}</code></pre>
 <pre><code>## Call:
-## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_no_high_vif)
+## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered)
 ## 
-##   n= 281, number of events= 281 
-##    (31 observations deleted due to missingness)
+##                                            coef exp(coef)  se(coef)      z
+## `ClinicalAssessment::GoldmanScore`     -2.31344   0.09892   1.76453 -1.311
+## `Sex (Male 1, Female 2)`1              -0.07670   0.92617   0.40194 -0.191
+## EducationYearsTotal                     1.02931   2.79913   1.18720  0.867
+## `Age at diagnosis`                      5.58407 266.15353   1.53125  3.647
+## `Disease duration at diagnosis`         2.19014   8.93642   2.02786  1.080
+## `ACEIII::SubtotalAttention`            -2.68931   0.06793   2.07222 -1.298
+## `ACEIII::SubtotalMemory`                0.09374   1.09827   1.52792  0.061
+## `ACEIII::SubtotalFluency`               2.06066   7.85114   1.22872  1.677
+## `ACEIII::SubtotalLanguage`              0.58686   1.79832   2.63094  0.223
+## `ACEIII::SubtotalVisuospatial`         -5.46794   0.00422   1.53167 -3.570
+## `CBI::PercentMemoryFCorrected`          0.31640   1.37217   1.36977  0.231
+## `CBI::PercentEverydayFCorrected`       -0.96713   0.38017   1.35787 -0.712
+## `CBI::PercentSelfCareFCorrected`        3.93175  50.99641   2.09880  1.873
+## `CBI::PercentAbnormalFCorrected`        4.12319  61.75577   3.19366  1.291
+## `CBI::PercentMoodFCorrected`           -0.28023   0.75561   1.73890 -0.161
+## `CBI::PercentBeliefsFCorrected`        -0.87328   0.41758   2.28161 -0.383
+## `CBI::PercentEatingFCorrected`         -3.67818   0.02527   2.36880 -1.553
+## `CBI::PercentSleepFCorrected`           0.57778   1.78207   0.86492  0.668
+## `CBI::PercentStereotypicalFCorrected`   0.88099   2.41328   1.64787  0.535
+## `CBI::PercentMotivationFCorrected`      1.42451   4.15584   1.16083  1.227
+##                                              p
+## `ClinicalAssessment::GoldmanScore`    0.189832
+## `Sex (Male 1, Female 2)`1             0.848669
+## EducationYearsTotal                   0.385939
+## `Age at diagnosis`                    0.000266
+## `Disease duration at diagnosis`       0.280131
+## `ACEIII::SubtotalAttention`           0.194359
+## `ACEIII::SubtotalMemory`              0.951080
+## `ACEIII::SubtotalFluency`             0.093528
+## `ACEIII::SubtotalLanguage`            0.823490
+## `ACEIII::SubtotalVisuospatial`        0.000357
+## `CBI::PercentMemoryFCorrected`        0.817326
+## `CBI::PercentEverydayFCorrected`      0.476314
+## `CBI::PercentSelfCareFCorrected`      0.061022
+## `CBI::PercentAbnormalFCorrected`      0.196684
+## `CBI::PercentMoodFCorrected`          0.871972
+## `CBI::PercentBeliefsFCorrected`       0.701909
+## `CBI::PercentEatingFCorrected`        0.120481
+## `CBI::PercentSleepFCorrected`         0.504125
+## `CBI::PercentStereotypicalFCorrected` 0.592914
+## `CBI::PercentMotivationFCorrected`    0.219764
+## 
+## Likelihood ratio test=44.78  on 20 df, p=0.001183
+## n= 49, number of events= 49 
+##    (11 observations deleted due to missingness)
+## Call:
+## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered)
 ## 
 ##                                           coef exp(coef) se(coef)      z
-## Diagnosis_number2                      0.18556   1.20390  0.26124  0.710
-## Diagnosis_number3                      0.03493   1.03554  0.30545  0.114
-## Diagnosis_number4                      0.19559   1.21603  0.37217  0.526
-## Diagnosis_number9                      2.47078  11.83163  0.29773  8.299
-## Diagnosis_number10                     0.13635   1.14609  0.26984  0.505
-## Diagnosis_number12                     0.17064   1.18606  0.28780  0.593
-## Diagnosis_number14                     0.12621   1.13452  0.32318  0.391
-## Diagnosis_number16                     0.34136   1.40686  0.37037  0.922
-## `ClinicalAssessment::GoldmanScore`    -0.38037   0.68361  0.32548 -1.169
-## `Sex (Male 1, Female 2)`1             -0.03218   0.96833  0.14692 -0.219
-## EducationYearsTotal                    0.17751   1.19424  0.35974  0.493
-## `Age at diagnosis`                     1.45137   4.26896  0.48511  2.992
-## `Disease duration at diagnosis`       -1.11895   0.32662  0.61188 -1.829
-## `ACEIII::SubtotalAttention`           -2.36328   0.09411  0.59231 -3.990
-## `ACEIII::SubtotalMemory`               1.42119   4.14207  0.49496  2.871
-## `ACEIII::SubtotalFluency`             -1.45658   0.23303  0.33563 -4.340
-## `ACEIII::SubtotalLanguage`             0.65344   1.92214  0.60738  1.076
-## `ACEIII::SubtotalVisuospatial`         0.11480   1.12165  0.53012  0.217
-## `CBI::PercentMemoryFCorrected`        -1.40421   0.24556  0.47966 -2.928
-## `CBI::PercentEverydayFCorrected`       0.50492   1.65685  0.44138  1.144
-## `CBI::PercentSelfCareFCorrected`       1.14154   3.13158  0.46883  2.435
-## `CBI::PercentAbnormalFCorrected`       0.32162   1.37936  0.52372  0.614
-## `CBI::PercentMoodFCorrected`           0.15885   1.17217  0.50556  0.314
-## `CBI::PercentBeliefsFCorrected`        0.28822   1.33405  0.45545  0.633
-## `CBI::PercentEatingFCorrected`        -0.21681   0.80508  0.50051 -0.433
-## `CBI::PercentSleepFCorrected`          0.34907   1.41775  0.24967  1.398
-## `CBI::PercentStereotypicalFCorrected` -0.31148   0.73236  0.35458 -0.878
-## `CBI::PercentMotivationFCorrected`     0.58391   1.79303  0.34311  1.702
-##                                       Pr(&gt;|z|)    
-## Diagnosis_number2                      0.47750    
-## Diagnosis_number3                      0.90896    
-## Diagnosis_number4                      0.59921    
-## Diagnosis_number9                      &lt; 2e-16 ***
-## Diagnosis_number10                     0.61334    
-## Diagnosis_number12                     0.55324    
-## Diagnosis_number14                     0.69615    
-## Diagnosis_number16                     0.35670    
-## `ClinicalAssessment::GoldmanScore`     0.24255    
-## `Sex (Male 1, Female 2)`1              0.82663    
-## EducationYearsTotal                    0.62170    
-## `Age at diagnosis`                     0.00277 ** 
-## `Disease duration at diagnosis`        0.06744 .  
-## `ACEIII::SubtotalAttention`           6.61e-05 ***
-## `ACEIII::SubtotalMemory`               0.00409 ** 
-## `ACEIII::SubtotalFluency`             1.43e-05 ***
-## `ACEIII::SubtotalLanguage`             0.28201    
-## `ACEIII::SubtotalVisuospatial`         0.82855    
-## `CBI::PercentMemoryFCorrected`         0.00342 ** 
-## `CBI::PercentEverydayFCorrected`       0.25265    
-## `CBI::PercentSelfCareFCorrected`       0.01490 *  
-## `CBI::PercentAbnormalFCorrected`       0.53914    
-## `CBI::PercentMoodFCorrected`           0.75336    
-## `CBI::PercentBeliefsFCorrected`        0.52685    
-## `CBI::PercentEatingFCorrected`         0.66488    
-## `CBI::PercentSleepFCorrected`          0.16207    
-## `CBI::PercentStereotypicalFCorrected`  0.37970    
-## `CBI::PercentMotivationFCorrected`     0.08879 .  
-## ---
-## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## `ClinicalAssessment::GoldmanScore`    -0.36325   0.69541  0.54375 -0.668
+## `Sex (Male 1, Female 2)`1             -0.81754   0.44152  0.48481 -1.686
+## EducationYearsTotal                    1.27071   3.56338  0.90665  1.402
+## `Age at diagnosis`                     2.16178   8.68655  1.27487  1.696
+## `Disease duration at diagnosis`       -1.63285   0.19537  1.26160 -1.294
+## `ACEIII::SubtotalAttention`           -2.11613   0.12050  1.78942 -1.183
+## `ACEIII::SubtotalMemory`               0.50745   1.66106  1.27635  0.398
+## `ACEIII::SubtotalFluency`             -2.29464   0.10080  0.78404 -2.927
+## `ACEIII::SubtotalLanguage`             1.20965   3.35231  1.48789  0.813
+## `ACEIII::SubtotalVisuospatial`        -3.97338   0.01881  1.90889 -2.082
+## `CBI::PercentMemoryFCorrected`        -2.50370   0.08178  1.06936 -2.341
+## `CBI::PercentEverydayFCorrected`      -1.10385   0.33159  1.21314 -0.910
+## `CBI::PercentSelfCareFCorrected`       2.69715  14.83738  0.99172  2.720
+## `CBI::PercentAbnormalFCorrected`       1.21139   3.35815  1.13770  1.065
+## `CBI::PercentMoodFCorrected`          -1.74347   0.17491  1.19017 -1.465
+## `CBI::PercentBeliefsFCorrected`        0.58131   1.78837  0.84976  0.684
+## `CBI::PercentEatingFCorrected`        -0.40512   0.66689  0.97895 -0.414
+## `CBI::PercentSleepFCorrected`          0.05466   1.05618  0.70778  0.077
+## `CBI::PercentStereotypicalFCorrected` -0.42797   0.65183  0.75136 -0.570
+## `CBI::PercentMotivationFCorrected`     1.95206   7.04316  0.90412  2.159
+##                                             p
+## `ClinicalAssessment::GoldmanScore`    0.50410
+## `Sex (Male 1, Female 2)`1             0.09174
+## EducationYearsTotal                   0.16105
+## `Age at diagnosis`                    0.08995
+## `Disease duration at diagnosis`       0.19557
+## `ACEIII::SubtotalAttention`           0.23698
+## `ACEIII::SubtotalMemory`              0.69094
+## `ACEIII::SubtotalFluency`             0.00343
+## `ACEIII::SubtotalLanguage`            0.41622
+## `ACEIII::SubtotalVisuospatial`        0.03739
+## `CBI::PercentMemoryFCorrected`        0.01922
+## `CBI::PercentEverydayFCorrected`      0.36287
+## `CBI::PercentSelfCareFCorrected`      0.00653
+## `CBI::PercentAbnormalFCorrected`      0.28698
+## `CBI::PercentMoodFCorrected`          0.14295
+## `CBI::PercentBeliefsFCorrected`       0.49392
+## `CBI::PercentEatingFCorrected`        0.67899
+## `CBI::PercentSleepFCorrected`         0.93845
+## `CBI::PercentStereotypicalFCorrected` 0.56895
+## `CBI::PercentMotivationFCorrected`    0.03084
 ## 
-##                                       exp(coef) exp(-coef) lower .95 upper .95
-## Diagnosis_number2                       1.20390    0.83064   0.72148    2.0089
-## Diagnosis_number3                       1.03554    0.96568   0.56907    1.8844
-## Diagnosis_number4                       1.21603    0.82235   0.58634    2.5219
-## Diagnosis_number9                      11.83163    0.08452   6.60111   21.2066
-## Diagnosis_number10                      1.14609    0.87253   0.67535    1.9449
-## Diagnosis_number12                      1.18606    0.84313   0.67474    2.0849
-## Diagnosis_number14                      1.13452    0.88143   0.60218    2.1375
-## Diagnosis_number16                      1.40686    0.71081   0.68076    2.9074
-## `ClinicalAssessment::GoldmanScore`      0.68361    1.46282   0.36121    1.2938
-## `Sex (Male 1, Female 2)`1               0.96833    1.03270   0.72605    1.2915
-## EducationYearsTotal                     1.19424    0.83735   0.59004    2.4171
-## `Age at diagnosis`                      4.26896    0.23425   1.64966   11.0471
-## `Disease duration at diagnosis`         0.32662    3.06162   0.09845    1.0836
-## `ACEIII::SubtotalAttention`             0.09411   10.62571   0.02948    0.3005
-## `ACEIII::SubtotalMemory`                4.14207    0.24143   1.57002   10.9277
-## `ACEIII::SubtotalFluency`               0.23303    4.29125   0.12071    0.4499
-## `ACEIII::SubtotalLanguage`              1.92214    0.52025   0.58449    6.3210
-## `ACEIII::SubtotalVisuospatial`          1.12165    0.89154   0.39685    3.1703
-## `CBI::PercentMemoryFCorrected`          0.24556    4.07232   0.09591    0.6287
-## `CBI::PercentEverydayFCorrected`        1.65685    0.60355   0.69755    3.9354
-## `CBI::PercentSelfCareFCorrected`        3.13158    0.31933   1.24939    7.8493
-## `CBI::PercentAbnormalFCorrected`        1.37936    0.72497   0.49418    3.8500
-## `CBI::PercentMoodFCorrected`            1.17217    0.85312   0.43516    3.1574
-## `CBI::PercentBeliefsFCorrected`         1.33405    0.74960   0.54638    3.2573
-## `CBI::PercentEatingFCorrected`          0.80508    1.24211   0.30186    2.1472
-## `CBI::PercentSleepFCorrected`           1.41775    0.70534   0.86913    2.3127
-## `CBI::PercentStereotypicalFCorrected`   0.73236    1.36545   0.36551    1.4674
-## `CBI::PercentMotivationFCorrected`      1.79303    0.55771   0.91523    3.5127
+## Likelihood ratio test=52.24  on 20 df, p=0.0001049
+## n= 61, number of events= 61 
+##    (5 observations deleted due to missingness)</code></pre>
+<pre><code>## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
+## Ran out of iterations and did not converge</code></pre>
+<pre><code>## Call:
+## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered)
 ## 
-## Concordance= 0.738  (se = 0.016 )
-## Likelihood ratio test= 173.6  on 28 df,   p=&lt;2e-16
-## Wald test            = 185.7  on 28 df,   p=&lt;2e-16
-## Score (logrank) test = 225.9  on 28 df,   p=&lt;2e-16</code></pre>
+##                                              coef   exp(coef)    se(coef)
+## `ClinicalAssessment::GoldmanScore`     -3.599e+02  5.226e-157   9.936e+02
+## `Sex (Male 1, Female 2)`1              -7.589e+01   1.100e-33   5.936e+02
+## EducationYearsTotal                    -2.080e+02   4.789e-91   7.964e+02
+## `Age at diagnosis`                      7.429e+02         Inf   1.744e+03
+## `Disease duration at diagnosis`        -5.899e+02  6.297e-257   3.015e+03
+## `ACEIII::SubtotalAttention`            -4.153e+02  4.272e-181   1.401e+03
+## `ACEIII::SubtotalMemory`                1.027e+03         Inf   9.945e+02
+## `ACEIII::SubtotalFluency`               3.924e+02  2.681e+170   7.345e+02
+## `ACEIII::SubtotalLanguage`             -5.748e+02  2.334e-250   1.308e+03
+## `ACEIII::SubtotalVisuospatial`          2.530e+02  7.906e+109   8.325e+02
+## `CBI::PercentMemoryFCorrected`          2.970e+02  1.008e+129   9.223e+02
+## `CBI::PercentEverydayFCorrected`        5.145e+02  2.728e+223   9.061e+02
+## `CBI::PercentSelfCareFCorrected`       -1.230e+02   3.779e-54   9.594e+02
+## `CBI::PercentAbnormalFCorrected`        1.901e+02   3.696e+82   1.850e+03
+## `CBI::PercentMoodFCorrected`           -1.108e+01   1.547e-05   1.329e+03
+## `CBI::PercentBeliefsFCorrected`        -2.922e+02  1.262e-127   1.416e+03
+## `CBI::PercentEatingFCorrected`          1.438e+03         Inf   1.782e+03
+## `CBI::PercentSleepFCorrected`          -3.911e+02  1.342e-170   9.045e+02
+## `CBI::PercentStereotypicalFCorrected`  -3.614e+02  1.064e-157   1.736e+03
+## `CBI::PercentMotivationFCorrected`     -4.543e+02  5.007e-198   8.439e+02
+##                                            z     p
+## `ClinicalAssessment::GoldmanScore`    -0.362 0.717
+## `Sex (Male 1, Female 2)`1             -0.128 0.898
+## EducationYearsTotal                   -0.261 0.794
+## `Age at diagnosis`                     0.426 0.670
+## `Disease duration at diagnosis`       -0.196 0.845
+## `ACEIII::SubtotalAttention`           -0.297 0.767
+## `ACEIII::SubtotalMemory`               1.033 0.302
+## `ACEIII::SubtotalFluency`              0.534 0.593
+## `ACEIII::SubtotalLanguage`            -0.439 0.660
+## `ACEIII::SubtotalVisuospatial`         0.304 0.761
+## `CBI::PercentMemoryFCorrected`         0.322 0.747
+## `CBI::PercentEverydayFCorrected`       0.568 0.570
+## `CBI::PercentSelfCareFCorrected`      -0.128 0.898
+## `CBI::PercentAbnormalFCorrected`       0.103 0.918
+## `CBI::PercentMoodFCorrected`          -0.008 0.993
+## `CBI::PercentBeliefsFCorrected`       -0.206 0.836
+## `CBI::PercentEatingFCorrected`         0.807 0.419
+## `CBI::PercentSleepFCorrected`         -0.432 0.665
+## `CBI::PercentStereotypicalFCorrected` -0.208 0.835
+## `CBI::PercentMotivationFCorrected`    -0.538 0.590
+## 
+## Likelihood ratio test=116  on 20 df, p=1.557e-15
+## n= 25, number of events= 25 
+##    (3 observations deleted due to missingness)</code></pre>
+<pre><code>## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
+## Ran out of iterations and did not converge</code></pre>
+<pre><code>## Call:
+## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered)
+## 
+##                                              coef   exp(coef)    se(coef)
+## `ClinicalAssessment::GoldmanScore`      2.160e+02   6.696e+93   2.068e+04
+## `Sex (Male 1, Female 2)`1               4.763e+02  7.442e+206   4.456e+03
+## EducationYearsTotal                     1.293e+02   1.375e+56   1.070e+04
+## `Age at diagnosis`                     -6.233e+02  2.109e-271   9.997e+03
+## `Disease duration at diagnosis`        -1.993e+03   0.000e+00   2.875e+04
+## `ACEIII::SubtotalAttention`             5.129e+02  5.858e+222   1.331e+04
+## `ACEIII::SubtotalMemory`                5.732e+02  8.685e+248   9.810e+03
+## `ACEIII::SubtotalFluency`              -2.380e+02  4.268e-104   9.738e+03
+## `ACEIII::SubtotalLanguage`              1.448e+01   1.948e+06   1.594e+04
+## `ACEIII::SubtotalVisuospatial`         -9.137e+02   0.000e+00   1.162e+04
+## `CBI::PercentMemoryFCorrected`          1.822e+03         Inf   1.014e+04
+## `CBI::PercentEverydayFCorrected`       -7.191e+02  4.816e-313   1.117e+04
+## `CBI::PercentSelfCareFCorrected`       -1.034e+03   0.000e+00   2.595e+04
+## `CBI::PercentAbnormalFCorrected`       -1.189e+03   0.000e+00   1.876e+04
+## `CBI::PercentMoodFCorrected`            2.426e+01   3.438e+10   2.190e+04
+## `CBI::PercentBeliefsFCorrected`        -2.049e+02   1.082e-89   6.930e+04
+## `CBI::PercentEatingFCorrected`          3.573e+01   3.307e+15   1.647e+04
+## `CBI::PercentSleepFCorrected`           8.795e+01   1.569e+38   5.530e+03
+## `CBI::PercentStereotypicalFCorrected`  -4.305e+02  1.106e-187   1.262e+04
+## `CBI::PercentMotivationFCorrected`     -1.886e+01   6.415e-09   1.505e+04
+##                                            z     p
+## `ClinicalAssessment::GoldmanScore`     0.010 0.992
+## `Sex (Male 1, Female 2)`1              0.107 0.915
+## EducationYearsTotal                    0.012 0.990
+## `Age at diagnosis`                    -0.062 0.950
+## `Disease duration at diagnosis`       -0.069 0.945
+## `ACEIII::SubtotalAttention`            0.039 0.969
+## `ACEIII::SubtotalMemory`               0.058 0.953
+## `ACEIII::SubtotalFluency`             -0.024 0.980
+## `ACEIII::SubtotalLanguage`             0.001 0.999
+## `ACEIII::SubtotalVisuospatial`        -0.079 0.937
+## `CBI::PercentMemoryFCorrected`         0.180 0.857
+## `CBI::PercentEverydayFCorrected`      -0.064 0.949
+## `CBI::PercentSelfCareFCorrected`      -0.040 0.968
+## `CBI::PercentAbnormalFCorrected`      -0.063 0.949
+## `CBI::PercentMoodFCorrected`           0.001 0.999
+## `CBI::PercentBeliefsFCorrected`       -0.003 0.998
+## `CBI::PercentEatingFCorrected`         0.002 0.998
+## `CBI::PercentSleepFCorrected`          0.016 0.987
+## `CBI::PercentStereotypicalFCorrected` -0.034 0.973
+## `CBI::PercentMotivationFCorrected`    -0.001 0.999
+## 
+## Likelihood ratio test=45.1  on 20 df, p=0.001068
+## n= 13, number of events= 13 
+##    (1 observation deleted due to missingness)
+## Call:
+## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered)
+## 
+##                                             coef  exp(coef)   se(coef)      z
+## `ClinicalAssessment::GoldmanScore`     4.391e+00  8.070e+01  1.410e+00  3.115
+## `Sex (Male 1, Female 2)`1             -3.428e+00  3.246e-02  1.091e+00 -3.142
+## EducationYearsTotal                   -1.557e+00  2.107e-01  2.082e+00 -0.748
+## `Age at diagnosis`                     6.102e+00  4.467e+02  3.022e+00  2.019
+## `Disease duration at diagnosis`       -4.001e+01  4.186e-18  8.241e+00 -4.855
+## `ACEIII::SubtotalAttention`            1.277e+00  3.587e+00  2.359e+00  0.541
+## `ACEIII::SubtotalMemory`              -1.183e-01  8.884e-01  2.492e+00 -0.047
+## `ACEIII::SubtotalFluency`             -8.474e+00  2.088e-04  1.974e+00 -4.293
+## `ACEIII::SubtotalLanguage`            -5.603e+00  3.685e-03  3.094e+00 -1.811
+## `ACEIII::SubtotalVisuospatial`         4.218e+00  6.792e+01  3.527e+00  1.196
+## `CBI::PercentMemoryFCorrected`         1.104e+00  3.015e+00  2.076e+00  0.532
+## `CBI::PercentEverydayFCorrected`      -6.361e+00  1.728e-03  3.548e+00 -1.793
+## `CBI::PercentSelfCareFCorrected`       1.065e+01  4.223e+04  4.063e+00  2.622
+## `CBI::PercentAbnormalFCorrected`       1.436e+01  1.718e+06  3.249e+00  4.419
+## `CBI::PercentMoodFCorrected`          -4.595e+00  1.010e-02  2.759e+00 -1.665
+## `CBI::PercentBeliefsFCorrected`        5.239e+00  1.885e+02  2.899e+00  1.807
+## `CBI::PercentEatingFCorrected`         6.046e+00  4.222e+02  2.630e+00  2.298
+## `CBI::PercentSleepFCorrected`         -5.654e+00  3.503e-03  1.605e+00 -3.523
+## `CBI::PercentStereotypicalFCorrected` -4.774e+00  8.451e-03  2.049e+00 -2.329
+## `CBI::PercentMotivationFCorrected`    -4.960e+00  7.012e-03  1.837e+00 -2.700
+##                                              p
+## `ClinicalAssessment::GoldmanScore`    0.001842
+## `Sex (Male 1, Female 2)`1             0.001677
+## EducationYearsTotal                   0.454597
+## `Age at diagnosis`                    0.043448
+## `Disease duration at diagnosis`       1.20e-06
+## `ACEIII::SubtotalAttention`           0.588217
+## `ACEIII::SubtotalMemory`              0.962131
+## `ACEIII::SubtotalFluency`             1.76e-05
+## `ACEIII::SubtotalLanguage`            0.070140
+## `ACEIII::SubtotalVisuospatial`        0.231687
+## `CBI::PercentMemoryFCorrected`        0.595064
+## `CBI::PercentEverydayFCorrected`      0.073003
+## `CBI::PercentSelfCareFCorrected`      0.008754
+## `CBI::PercentAbnormalFCorrected`      9.90e-06
+## `CBI::PercentMoodFCorrected`          0.095878
+## `CBI::PercentBeliefsFCorrected`       0.070736
+## `CBI::PercentEatingFCorrected`        0.021544
+## `CBI::PercentSleepFCorrected`         0.000427
+## `CBI::PercentStereotypicalFCorrected` 0.019848
+## `CBI::PercentMotivationFCorrected`    0.006940
+## 
+## Likelihood ratio test=63.77  on 20 df, p=1.832e-06
+## n= 35, number of events= 35 
+##    (1 observation deleted due to missingness)
+## Call:
+## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered)
+## 
+##                                             coef  exp(coef)   se(coef)      z
+## `ClinicalAssessment::GoldmanScore`     9.976e+00  2.151e+04  4.878e+00  2.045
+## `Sex (Male 1, Female 2)`1             -3.751e+00  2.350e-02  1.384e+00 -2.710
+## EducationYearsTotal                   -2.928e+00  5.351e-02  2.976e+00 -0.984
+## `Age at diagnosis`                     2.560e+01  1.312e+11  1.056e+01  2.425
+## `Disease duration at diagnosis`       -1.813e+01  1.335e-08  1.447e+01 -1.253
+## `ACEIII::SubtotalAttention`           -9.641e+00  6.503e-05  7.542e+00 -1.278
+## `ACEIII::SubtotalMemory`               1.629e+01  1.186e+07  6.423e+00  2.536
+## `ACEIII::SubtotalFluency`             -4.602e+00  1.004e-02  2.770e+00 -1.661
+## `ACEIII::SubtotalLanguage`            -2.340e+01  6.896e-11  8.002e+00 -2.924
+## `ACEIII::SubtotalVisuospatial`         8.221e+00  3.719e+03  6.179e+00  1.331
+## `CBI::PercentMemoryFCorrected`         5.363e+00  2.134e+02  5.020e+00  1.068
+## `CBI::PercentEverydayFCorrected`       1.229e+01  2.176e+05  5.744e+00  2.140
+## `CBI::PercentSelfCareFCorrected`      -6.551e+01  3.545e-29  2.239e+01 -2.926
+## `CBI::PercentAbnormalFCorrected`       4.046e+01  3.720e+17  1.400e+01  2.890
+## `CBI::PercentMoodFCorrected`           2.078e+01  1.059e+09  6.455e+00  3.219
+## `CBI::PercentBeliefsFCorrected`        1.639e+01  1.313e+07  9.091e+00  1.803
+## `CBI::PercentEatingFCorrected`        -1.125e+01  1.304e-05  6.127e+00 -1.836
+## `CBI::PercentSleepFCorrected`         -2.050e+00  1.288e-01  3.465e+00 -0.592
+## `CBI::PercentStereotypicalFCorrected` -9.191e+00  1.019e-04  4.209e+00 -2.184
+## `CBI::PercentMotivationFCorrected`    -2.455e+00  8.587e-02  3.471e+00 -0.707
+##                                             p
+## `ClinicalAssessment::GoldmanScore`    0.04084
+## `Sex (Male 1, Female 2)`1             0.00673
+## EducationYearsTotal                   0.32512
+## `Age at diagnosis`                    0.01529
+## `Disease duration at diagnosis`       0.21004
+## `ACEIII::SubtotalAttention`           0.20113
+## `ACEIII::SubtotalMemory`              0.01121
+## `ACEIII::SubtotalFluency`             0.09668
+## `ACEIII::SubtotalLanguage`            0.00345
+## `ACEIII::SubtotalVisuospatial`        0.18334
+## `CBI::PercentMemoryFCorrected`        0.28533
+## `CBI::PercentEverydayFCorrected`      0.03239
+## `CBI::PercentSelfCareFCorrected`      0.00343
+## `CBI::PercentAbnormalFCorrected`      0.00385
+## `CBI::PercentMoodFCorrected`          0.00129
+## `CBI::PercentBeliefsFCorrected`       0.07141
+## `CBI::PercentEatingFCorrected`        0.06642
+## `CBI::PercentSleepFCorrected`         0.55417
+## `CBI::PercentStereotypicalFCorrected` 0.02900
+## `CBI::PercentMotivationFCorrected`    0.47934
+## 
+## Likelihood ratio test=66.75  on 20 df, p=6.122e-07
+## n= 27, number of events= 27 
+##    (1 observation deleted due to missingness)
+## Call:
+## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered)
+## 
+##                                             coef  exp(coef)   se(coef)      z
+## `ClinicalAssessment::GoldmanScore`    -7.613e-01  4.671e-01  4.663e+00 -0.163
+## `Sex (Male 1, Female 2)`1             -3.290e+00  3.725e-02  9.300e-01 -3.538
+## EducationYearsTotal                    6.496e-01  1.915e+00  4.060e+00  0.160
+## `Age at diagnosis`                     2.893e+00  1.805e+01  2.942e+00  0.983
+## `Disease duration at diagnosis`        1.490e+01  2.965e+06  6.001e+00  2.483
+## `ACEIII::SubtotalAttention`            2.248e+00  9.467e+00  7.581e+00  0.297
+## `ACEIII::SubtotalMemory`              -8.782e-01  4.155e-01  3.323e+00 -0.264
+## `ACEIII::SubtotalFluency`             -6.262e+00  1.908e-03  2.014e+00 -3.108
+## `ACEIII::SubtotalLanguage`             9.744e+00  1.705e+04  5.439e+00  1.791
+## `ACEIII::SubtotalVisuospatial`        -1.617e+01  9.514e-08  6.355e+00 -2.544
+## `CBI::PercentMemoryFCorrected`        -3.744e+00  2.366e-02  2.911e+00 -1.286
+## `CBI::PercentEverydayFCorrected`      -1.098e+00  3.336e-01  3.844e+00 -0.286
+## `CBI::PercentSelfCareFCorrected`       2.147e+01  2.113e+09  1.320e+01  1.626
+## `CBI::PercentAbnormalFCorrected`       6.375e+00  5.868e+02  6.547e+00  0.974
+## `CBI::PercentMoodFCorrected`           1.380e+00  3.974e+00  4.251e+00  0.325
+## `CBI::PercentBeliefsFCorrected`       -6.249e+01  7.277e-28  2.577e+01 -2.425
+## `CBI::PercentEatingFCorrected`        -1.225e+01  4.801e-06  6.702e+00 -1.827
+## `CBI::PercentSleepFCorrected`         -3.823e+00  2.186e-02  3.063e+00 -1.248
+## `CBI::PercentStereotypicalFCorrected`  6.157e+00  4.719e+02  2.691e+00  2.288
+## `CBI::PercentMotivationFCorrected`    -2.185e+00  1.125e-01  2.703e+00 -0.808
+##                                              p
+## `ClinicalAssessment::GoldmanScore`    0.870301
+## `Sex (Male 1, Female 2)`1             0.000404
+## EducationYearsTotal                   0.872876
+## `Age at diagnosis`                    0.325431
+## `Disease duration at diagnosis`       0.013010
+## `ACEIII::SubtotalAttention`           0.766842
+## `ACEIII::SubtotalMemory`              0.791549
+## `ACEIII::SubtotalFluency`             0.001881
+## `ACEIII::SubtotalLanguage`            0.073226
+## `ACEIII::SubtotalVisuospatial`        0.010953
+## `CBI::PercentMemoryFCorrected`        0.198469
+## `CBI::PercentEverydayFCorrected`      0.775186
+## `CBI::PercentSelfCareFCorrected`      0.103915
+## `CBI::PercentAbnormalFCorrected`      0.330190
+## `CBI::PercentMoodFCorrected`          0.745515
+## `CBI::PercentBeliefsFCorrected`       0.015308
+## `CBI::PercentEatingFCorrected`        0.067671
+## `CBI::PercentSleepFCorrected`         0.212052
+## `CBI::PercentStereotypicalFCorrected` 0.022124
+## `CBI::PercentMotivationFCorrected`    0.418899
+## 
+## Likelihood ratio test=33.02  on 20 df, p=0.03359
+## n= 29, number of events= 29 
+##    (2 observations deleted due to missingness)</code></pre>
+<pre><code>## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
+## Ran out of iterations and did not converge</code></pre>
+<pre><code>## Call:
+## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered)
+## 
+##                                              coef   exp(coef)    se(coef)
+## `ClinicalAssessment::GoldmanScore`     -4.194e+02  7.377e-183   9.661e+03
+## `Sex (Male 1, Female 2)`1              -5.486e+01   1.499e-24   2.252e+03
+## EducationYearsTotal                    -1.385e+02   7.199e-61   7.490e+03
+## `Age at diagnosis`                     -2.901e+02  1.058e-126   1.438e+04
+## `Disease duration at diagnosis`         2.691e+02  7.185e+116   1.520e+04
+## `ACEIII::SubtotalAttention`             1.513e+02   4.972e+65   1.438e+04
+## `ACEIII::SubtotalMemory`                6.153e+02  1.747e+267   1.230e+04
+## `ACEIII::SubtotalFluency`              -1.321e+02   4.128e-58   6.763e+03
+## `ACEIII::SubtotalLanguage`              5.980e+01   9.377e+25   1.584e+04
+## `ACEIII::SubtotalVisuospatial`          5.356e+01   1.820e+23   9.921e+03
+## `CBI::PercentMemoryFCorrected`          5.498e+01   7.536e+23   1.061e+04
+## `CBI::PercentEverydayFCorrected`       -4.073e+01   2.048e-18   5.943e+03
+## `CBI::PercentSelfCareFCorrected`       -1.154e+02   7.498e-51   1.349e+04
+## `CBI::PercentAbnormalFCorrected`        1.464e+02   3.894e+63   7.735e+03
+## `CBI::PercentMoodFCorrected`            3.707e+02  9.475e+160   1.000e+04
+## `CBI::PercentBeliefsFCorrected`        -9.258e+02   0.000e+00   3.554e+04
+## `CBI::PercentEatingFCorrected`          5.182e+02  1.087e+225   5.030e+03
+## `CBI::PercentSleepFCorrected`           6.883e+01   7.820e+29   4.014e+03
+## `CBI::PercentStereotypicalFCorrected`  -1.057e+02   1.199e-46   5.139e+03
+## `CBI::PercentMotivationFCorrected`     -4.985e+02  3.256e-217   3.402e+03
+##                                            z     p
+## `ClinicalAssessment::GoldmanScore`    -0.043 0.965
+## `Sex (Male 1, Female 2)`1             -0.024 0.981
+## EducationYearsTotal                   -0.018 0.985
+## `Age at diagnosis`                    -0.020 0.984
+## `Disease duration at diagnosis`        0.018 0.986
+## `ACEIII::SubtotalAttention`            0.011 0.992
+## `ACEIII::SubtotalMemory`               0.050 0.960
+## `ACEIII::SubtotalFluency`             -0.020 0.984
+## `ACEIII::SubtotalLanguage`             0.004 0.997
+## `ACEIII::SubtotalVisuospatial`         0.005 0.996
+## `CBI::PercentMemoryFCorrected`         0.005 0.996
+## `CBI::PercentEverydayFCorrected`      -0.007 0.995
+## `CBI::PercentSelfCareFCorrected`      -0.009 0.993
+## `CBI::PercentAbnormalFCorrected`       0.019 0.985
+## `CBI::PercentMoodFCorrected`           0.037 0.970
+## `CBI::PercentBeliefsFCorrected`       -0.026 0.979
+## `CBI::PercentEatingFCorrected`         0.103 0.918
+## `CBI::PercentSleepFCorrected`          0.017 0.986
+## `CBI::PercentStereotypicalFCorrected` -0.021 0.984
+## `CBI::PercentMotivationFCorrected`    -0.147 0.884
+## 
+## Likelihood ratio test=90.76  on 20 df, p=5.457e-11
+## n= 21, number of events= 21 
+##    (3 observations deleted due to missingness)</code></pre>
+<pre><code>## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
+## Ran out of iterations and did not converge</code></pre>
+<pre><code>## Call:
+## coxph(formula = Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered)
+## 
+##                                              coef   exp(coef)    se(coef)
+## `ClinicalAssessment::GoldmanScore`     -2.940e+02  2.158e-128   1.090e+04
+## `Sex (Male 1, Female 2)`1              -2.082e+02   3.931e-91   2.121e+03
+## EducationYearsTotal                    -1.558e+02   2.153e-68   7.540e+03
+## `Age at diagnosis`                      1.516e+02   7.033e+65   1.087e+04
+## `Disease duration at diagnosis`         7.869e+02         Inf   1.302e+04
+## `ACEIII::SubtotalAttention`            -2.472e+02  4.465e-108   1.047e+04
+## `ACEIII::SubtotalMemory`                7.888e+02         Inf   5.976e+03
+## `ACEIII::SubtotalFluency`               1.922e+02   2.879e+83   4.199e+03
+## `ACEIII::SubtotalLanguage`             -6.177e+02  5.393e-269   6.443e+03
+## `ACEIII::SubtotalVisuospatial`         -4.655e+02  7.117e-203   1.351e+04
+## `CBI::PercentMemoryFCorrected`         -2.530e+02  1.294e-110   8.884e+03
+## `CBI::PercentEverydayFCorrected`        4.748e+02  1.576e+206   1.237e+04
+## `CBI::PercentSelfCareFCorrected`       -6.093e+02  2.458e-265   2.673e+05
+## `CBI::PercentAbnormalFCorrected`       -7.485e+02   0.000e+00   6.055e+03
+## `CBI::PercentMoodFCorrected`            9.076e+01   2.598e+39   7.050e+03
+## `CBI::PercentBeliefsFCorrected`         2.643e+02  5.906e+114   8.976e+03
+## `CBI::PercentEatingFCorrected`         -6.739e+02  2.229e-293   5.937e+03
+## `CBI::PercentSleepFCorrected`           8.240e+01   6.117e+35   3.666e+03
+## `CBI::PercentStereotypicalFCorrected`   5.810e+02  2.138e+252   3.448e+03
+## `CBI::PercentMotivationFCorrected`      3.537e+02  3.991e+153   4.158e+03
+##                                            z     p
+## `ClinicalAssessment::GoldmanScore`    -0.027 0.978
+## `Sex (Male 1, Female 2)`1             -0.098 0.922
+## EducationYearsTotal                   -0.021 0.984
+## `Age at diagnosis`                     0.014 0.989
+## `Disease duration at diagnosis`        0.060 0.952
+## `ACEIII::SubtotalAttention`           -0.024 0.981
+## `ACEIII::SubtotalMemory`               0.132 0.895
+## `ACEIII::SubtotalFluency`              0.046 0.963
+## `ACEIII::SubtotalLanguage`            -0.096 0.924
+## `ACEIII::SubtotalVisuospatial`        -0.034 0.973
+## `CBI::PercentMemoryFCorrected`        -0.028 0.977
+## `CBI::PercentEverydayFCorrected`       0.038 0.969
+## `CBI::PercentSelfCareFCorrected`      -0.002 0.998
+## `CBI::PercentAbnormalFCorrected`      -0.124 0.902
+## `CBI::PercentMoodFCorrected`           0.013 0.990
+## `CBI::PercentBeliefsFCorrected`        0.029 0.977
+## `CBI::PercentEatingFCorrected`        -0.113 0.910
+## `CBI::PercentSleepFCorrected`          0.022 0.982
+## `CBI::PercentStereotypicalFCorrected`  0.168 0.866
+## `CBI::PercentMotivationFCorrected`     0.085 0.932
+## 
+## Likelihood ratio test=90.76  on 20 df, p=5.457e-11
+## n= 21, number of events= 21 
+##    (4 observations deleted due to missingness)</code></pre>
 
 
 

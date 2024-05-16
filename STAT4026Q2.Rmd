@@ -55,6 +55,23 @@ fit
 vif <- rms::vif(fit)
 vif
 ```
+
+```{r}
+coefs <- summary(fit)$coefficients
+
+coef_df <- data.frame(
+  Coefficient = coefs[, "coef"],
+  AbsCoefficient = abs(coefs[, "coef"]),
+  PValue = coefs[, "Pr(>|z|)"]
+)
+
+sorted_coef_df <- coef_df[order(-coef_df$AbsCoefficient),]
+top_8_variables <- head(sorted_coef_df, 8)
+
+print(top_8_variables)
+```
+
+
 ```{r}
 unique_diagnosis= data$Diagnosis_name %>% unique()
 for (name in unique_diagnosis) {
