@@ -282,7 +282,6 @@ data_stand = data_stand %>% drop_na()
 ```
 
 
-
 ```{r}
 # colnames(data_stand_no_high_vif)
 data_stand_no_high_vif = data_stand %>% select(-c(`ACEIII::ACEIIITotal`))
@@ -313,12 +312,12 @@ coefs <- summary_cox_full$table %>% as.data.frame()
 rownames(coefs)<- sub("`", "", rownames(coefs)) 
 rownames(coefs)<- sub("`", " ", rownames(coefs)) 
 colnames(coefs) <- c("Coefficient", "Std. Error", "z value", "p value")
-significant_vars <- coefs[coefs[, "p value"] < 0.05, ]
-significant_vars_sorted <- significant_vars[order(abs(significant_vars[,"Coefficient"]), decreasing = TRUE), ]
+# significant_vars <- coefs[coefs[, "p value"] < 0.05, ]
+coefs_sorted <- coefs[order(abs(coefs[,"Coefficient"]), decreasing = TRUE), ]
 
 
 # colnames(significant_vars_sorted) <- c("Coefficient","Exp(Coefficient)", "Std. Error", "z value", "P Value")
-styled_table <- significant_vars_sorted %>% kable() %>%
+styled_table <- coefs_sorted %>% kable() %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 styled_table 
 ```
@@ -348,20 +347,7 @@ for (name in unique_dx) {
 ```
 
 
-<!-- ```{r} -->
-<!-- data_stand_filtered_p = data_stand_no_high_vif %>% filter(Diagnosis_name == "nfvPPA + Parkinson’s plus") -->
-<!-- data_stand_filtered_p = data_stand_filtered_p %>% select(-Diagnosis_name) -->
-<!-- fit <- survreg(Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered_p, dist = "lognormal") -->
-<!-- diagnosis_fit <- summary(fit) -->
-<!-- coefs <- diagnosis_fit$table %>% as.data.frame() -->
-<!-- rownames(coefs)<- sub("`", "", rownames(coefs)) -->
-<!-- rownames(coefs)<- sub("`", " ", rownames(coefs)) -->
-<!-- colnames(coefs) <- c("Coefficient", "Std. Error", "z value", "P Value") -->
-<!-- significant_vars <- coefs[coefs[, "P Value"] < 0.05, ] -->
-<!-- significant_vars_sorted <- significant_vars[order(abs(significant_vars[,"Coefficient"]), decreasing = TRUE), ] -->
-<!-- significant_vars_list[[name]] = significant_vars_sorted -->
 
-<!-- ``` -->
 
 :::{.panel-tabset}
 
@@ -379,7 +365,6 @@ for (i in seq_along(significant_vars_list)) {
 ```
 
 :::
-
 
 
 ## Appendix
