@@ -345,6 +345,11 @@ ggplot(significant_vars, aes(x = rownames(significant_vars), y = abso, fill = Co
 ### Significance of variabes by dementia group
 
 ```{r}
+# list observations in each categories
+table(data_stand$Diagnosis_name)
+```
+
+```{r}
 unique_dx = c("AD", "bvFTD", "CBS","FTD-MND","lvPPA","nfvPPA")                   
 coeffs_list = list()
 coeffs_significance = list()
