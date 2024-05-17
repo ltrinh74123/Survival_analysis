@@ -314,27 +314,16 @@ rownames(coefs)<- sub("`", " ", rownames(coefs))
 colnames(coefs) <- c("Coefficient", "Std. Error", "z value", "p value")
 significant_vars <- coefs[coefs[, "p value"] < 0.05, ]
 coefs_sorted <- coefs[order(abs(coefs[,"Coefficient"]), decreasing = TRUE), ]
-
-
-# colnames(significant_vars_sorted) <- c("Coefficient","Exp(Coefficient)", "Std. Error", "z value", "P Value")
-styled_table <- coefs_sorted %>% kable() %>%
+styled_table_for_full_model <- coefs_sorted %>% kable() %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
-styled_table 
+
+
 ```
 
 
 ```{r}
-# list observations in each categories
-table(data_stand$Diagnosis_name)
-
-# bar plot for significant coefficients
-significant_vars
-
-library(ggplot2)
-
-# Create a data frame
-library(dplyr)
-significant_vars
+rows_to_remove <- c("(Intercept)", "Log(scale)", "Diagnosis_nameFTD-MND")
+significant_vars <- significant_vars[!rownames(significant_vars) %in% rows_to_remove, ]
 significant_vars$abso = abs(significant_vars$Coefficient)
 
 
@@ -343,9 +332,9 @@ ggplot(significant_vars, aes(x = rownames(significant_vars), y = abso, fill = Co
   geom_col() +
   coord_flip() +
   scale_fill_manual(values = c("#6D9EC1", "#E46726"),
-                    labels = c("Negative Coefficient", "Positive Coefficient"),
-                    name = "Coefficient Sign") +
-  labs(title = "Magnitude of Significant Coefficients", x = "Variables", y = "Magnitude of Coefficients") +
+                    labels = c("Negative Impact", "Positive Impact"),
+                    name = "Impact Type") +
+  labs(title = "Impact of Significant Coefficients", x = "Factors", y = "Coefficients Impact") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
@@ -359,7 +348,7 @@ ggplot(significant_vars, aes(x = rownames(significant_vars), y = abso, fill = Co
 unique_dx = c("AD", "bvFTD", "CBS","FTD-MND","lvPPA","nfvPPA")                   
 coeffs_list = list()
 coeffs_significance = list()
-plot = list()
+plot_diag = list()
 for (name in unique_dx) {
   data_stand_filtered = data_stand_no_high_vif %>% filter(Diagnosis_name == name)
   data_stand_filtered = data_stand_filtered %>% select(-Diagnosis_name)
@@ -379,16 +368,39 @@ for (name in unique_dx) {
   rows_to_remove <- c("(Intercept)", "Log(scale)")
   significant_vars <- significant_vars[!rownames(significant_vars) %in% rows_to_remove, ]
   significant_vars$Variable <- rownames(significant_vars)
-  significant_vars$name <- name
   coeffs_significance[[name]] = significant_vars
+  significant_vars$abso = abs(significant_vars$Coefficient)
 
+  p = ggplot(significant_vars, aes(x = Variable, y = abso, fill = Coefficient > 0)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_manual(values = c("#6D9EC1", "#E46726"),
+                    labels = c("Negative Impact", "Positive Impact"),
+                    name = "Impact Type") +
+  labs(title = paste0("Impact of Significant Coefficients in ", name), x = "Factors", y = "Coefficients Impact") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  plot_diag[[name]] = list(plot = p)
 
 }
 
-
 ```
 
+::: panel-tabset
 
+```{r, results='asis'}
+#| warning: false
+
+iwalk(plot_diag, ~ {
+      cat('## ', .y, '\n\n')
+      print(.x$plot)
+  
+      cat("\n\n") })
+
+
+```
+:::
 
 ```{r}
 # combined_df = do.call(rbind, coeffs_significance)
@@ -430,6 +442,15 @@ for (i in seq_along(test_ph_list)) {
 
 :::
 
+### Results from all dementia diagnosis
+
+```{r}
+styled_table_for_full_model 
+```
+
+
+### Results from each dementia diagnosis 
+
 :::{.panel-tabset}
 
 ```{r, results='asis'}
@@ -444,5 +465,6 @@ for (i in seq_along(coeffs_list)) {
   cat("\n\n")}
 
 ```
-
 :::
+
+
