@@ -2,7 +2,7 @@
 title: "STAT3926/STAT4026: Statistical Consulting"
 subtitle: "Survival Analysis"
 author:
-  - "Prepared by: 510288769"
+  - "Prepared by: 510288769, 500199066"
   - "Prepared for: David Foxe"
 title-block-banner: "#d85f33"
 date: "`r format(Sys.time(), '%d %B, %Y %H:%M')`"
@@ -341,6 +341,19 @@ ggplot(significant_vars, aes(x = rownames(significant_vars), y = abso, fill = Co
 
 ```
 
+Since there is no censored data, we applied the **survreg** function with a "lognormal" distribution to fit a parametric survival regression model. 
+
+The dataset exhibits multicollinearity, which means some variables are highly correlated. For example, "ACE-III Total" is the total score on the Addenbrooke's Cognitive Examination-III test (the sum of all other ACE-III columns). Multicollinearity is likely to result in unreliable coefficient estimation and difficult interpretation. Thus, we applied the Variance Inflation Factor (VIF) to detect multicollinearity. VIF values show the strength of the correlation between the independent variables. To avoid problems caused by multicollinearity, we only considered variables with lower VIF values. The variables with lower VIF values can display characteristics of omitted variables, so we did not lose information from the dataset.
+
+We scaled the data to ensure data in the same scale, so the variables with a high magnitude of coefficient have a more significant influence on our dependent variable "Diagnosis till death". For the full model considering all variables, we presented a bar plot to visualise the top 4 significant variables: 
+<br> - Disease duration at diagnosis: the number of years the person has been experiencing symptoms before coming into the clinic.
+<br> - ACEIII::SubtotalFluency: An examination of the integrity of verbal fluency by a cognitive screening tool.
+<br> - ACEIII::SubtotalVisuospatial: An examination of the integrity of visuospatial by a cognitive screening tool.
+<br> - CBI::PercentSelfCareFCorrected: The percentages of the maximum achievable score in self-care examines by The Cambridge Behavioural Inventory-Revised (CBI-R). Higher scores denote better performance in self care.
+
+The variables shown in orange play a positive impact on the model, and the variables shown in blue play a negative impact on the model. 
+
+More details for the full model are listed in the Appendix.
 
 ### Significance of variabes by dementia group
 
@@ -421,9 +434,25 @@ iwalk(plot_diag, ~ {
 #   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 ```
 
+These are nine different dementia groups. We counted the number of observations for each group. Since there are no sufficient observations in the "nfvPPA + Parkinson’s plus" group, "PSP" group, and "svPPA" group, there is an overfitting. The insufficient data probably leads to a model that is overly tailored to samples by capturing noise rather than the underlying pattern.
 
+Besides, from previous analysis, we found "Diagnosis_number" plays an important role, so we constructed models for dementia groups with enough data. From above plots, we visualised significant variables for each dementia group.
 
+<br> - AD: "ACEIII::SubtotalVisuospatial" has a positive impact, and "EducationYearsTotal" and "Age at diagnosis" have a negative impact on "Diagnosis till death".
 
+<br> - bvFTD: "CBI::PercentMemory", "ACEIII::SubtotalVisuospatial", and "ACEIII::SubtotalFluency" have a positive impact, and "CBI::PercentSelfCare" has a negative impact on "Diagnosis till death".
+
+<br> - CBS: There are many variables having impact on "Diagnosis till death". "ACEIII::SubtotalAttention" has a positive impact, and "CBI::PercentEating" and "CBI::PercentAbnormal" have a negative impact.
+
+<br> - FTD-MND: There are many variables having impact on "Diagnosis till death". "Sex (Male 1, Female 2)" and "Disease duration at diagnosis" have a positive impact, and "CBI::PercentAbnormal" has a negative impact.
+
+<br> - lvPPA: There are many variables having impact on "Diagnosis till death". "CBI::PercentSelfCare" and "ACEIII::SubtotalLanguage" have a positive impact, and "CBI::PercentAbnormal" has a negative impact.
+
+<br> - nfvPPA: "Sex (Male 1, Female 2)", "CBI::PercentEating", "ACEIII::SubtotalFluency" have a postive impact, and "ACEIII::SubtotalAttention" has a negative impact on "Diagnosis till death".
+
+It is same as the previous bar plot. The variables shown in orange and blue play a positive and negative impact on the model respectively. We can conclude "ACEIII::SubtotalVisuospatial", "ACEIII::SubtotalFluency", "CBI::PercentSelfCare", "ACEIII::SubtotalAttention", "CBI::PercentEating", "CBI::PercentAbnormal" are significant for most dementia groups.
+
+More details for the each dementia group model are listed in the Appendix.
 
 
 ## Appendix
@@ -472,4 +501,7 @@ for (i in seq_along(coeffs_list)) {
 ```
 :::
 
+## Contribution
 
+Linh Trinh - Analysis and Report writing.
+Betty Zhao - Analysis and Report writing.
