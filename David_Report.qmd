@@ -21,7 +21,6 @@ format:
 table-of-contents: true
 number-sections: false
 server: shiny
-
 ---
 
 ```{r setup, messages = FALSE, echo=FALSE, warning= FALSE}
@@ -45,7 +44,9 @@ suppressMessages({
 
 ```
 
-## Executive Summary
+# Executive Summary
+
+This report aims to demonstrate the application of a Cox Proportional Hazard regression model to examine how four key covariates — Sex, Age at Diagnosis, Disease Duration at Diagnosis, and ACE-III Score — affect the survival probability of individuals across various dementia diagnoses. Additionally, a log normal regression was implemented to identify and order the level of impact from the same variables in the cox regression as well as more additional ones like cognitive and behavioral has on survival, both holistically across all dementia types and within each specific dementia diagnosis. It was found that the holistic approach has labelled the disease duration at diagnosis and some sub categories under ACE-III and Cambridge Behavioural Inventory (CBI) scores as significant factors, but under each different diagnosis types, the factors would vary in importance.
 
 ```{r}
 data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
@@ -58,14 +59,23 @@ data$Diagnosis_name <- mapping_vector[as.character(data$Diagnosis_number)]
 
 ```
 
-## Background
-Previously, the client implemented a Kaplan-Meier survival curve to model the survival predictions across different types of dementia.
+# Introduction
+
+Research on dementia survival has led researchers, like the client, to note various factors that potentially impact survivability. Understanding these factors is crucial for improving patient care and tailoring interventions to individual needs. This report focuses on two statistical approaches to analyze survival probabilities in dementia patients: the Cox Proportional Hazards model and the log-normal regression model. The Cox model, a widely used method in survival analysis, examines the relationship between survival time and key covariates, providing insights into how these factors affect patient outcomes. The log-normal regression model, which includes the same covariates as the Cox model along with additional variables, offers a comprehensive view of the predictors influencing survival.
 
 ## Client's Aims
-The client has two aims for this project. The first is to produce an interactive graph that provides a comprehensive exploration of the time from formal diagnosis to death based on four key covariates: age at diagnosis, sex, disease duration at diagnosis, and overall cognitive performance measured by the ACE-III test. These covariates were selected by the client based on their expertise and the availability of data. The second aim is to explore additional variables, including those from the Cambridge Behavioural Inventory-Revised carer questionnaire, family history of dementia as defined by a Goldman Score, and cognitive abilities. The client suspects these variables may influence survival rates and wants more clarity on the extent of the impact each factor has on survival.
 
-## Model 
-To meet the client's objective of understanding how various covariates affect different dementia patient groups, we implemented a Cox Proportional Hazards regression model for each type of dementia, serving as the foundation of the interactive survival graph. This approach was informed by previous client analyses that highlighted statistically significant survival differences across dementia diagnoses. Each model accounted for age at diagnosis, sex, disease duration at diagnosis, and overall cognitive performance as assessed by the ACE-III test. While the Cox regression model does not assume any underlying data distribution, it does require other assumptions to be satisfied (details in the appendix). 
+The first objective of this report is to produce an interactive survival graph that provides a comprehensive exploration of the time from formal diagnosis to death based on four key covariates: age at diagnosis, sex, disease duration at diagnosis, and overall total cognitive performance measured by the ACE-III test. These covariates were selected by the client based on their expertise and the availability of data. The second aim is to explore additional variables, including those from the CBI carer questionnaire, family history of dementia as defined by a Goldman Score, and cognitive abilities. The client suspects these variables may influence survival rates and wants more clarity on the extent of the impact each factor has on survival.
+
+# Interactive Survival Graph
+
+The interactive survival graph is designed to facilitate the analysis of different patient groups by inputting their specific data. This feature allows users to observe and compare how various factors impact survival rates across different groups. As shown in the interactive graph below, users can select patient attributes such as age at diagnosis, disease duration, ACE-III total scores, and gender, along with the specific dementia diagnoses. By adjusting these parameters, the graph dynamically illustrates the survival probabilities over time, enabling a detailed comparison between two distinct patient groups.
+
+## Model
+
+To meet the client's objective of understanding how various covariates affect different dementia patient groups, we implemented a Cox Proportional Hazards regression model for each type of dementia, serving as the foundation of the interactive survival graph. This approach was informed by previous client analyses that highlighted statistically significant survival differences across dementia diagnoses. Each model accounted for age at diagnosis, sex, disease duration at diagnosis, and overall cognitive performance as assessed by the ACE-III test. While the Cox regression model does not assume any underlying data distribution, it does require other assumptions to be satisfied (details in the appendix).
+
+## Interactive Graph for Comparasion
 
 ```{r}
 subset_columns <- c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number")
@@ -74,9 +84,7 @@ subset_columns <- c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Fe
 data_cleaned <- data %>%
   filter(rowSums(is.na(select(., all_of(subset_columns)))) == 0)
 data_cleaned = data_cleaned %>% select(c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number", "Diagnosis_name"))
-```
 
-```{r}
 model_list = list()
 test_ph_list = list()
 covariate_names = c("Age at diagnosis", "Sex", "Disease duration at diagnosis", "ACE-III Total", "GLOBAL")
@@ -105,10 +113,6 @@ for (dx in unique_dx) {
   test_ph_list[[as.character(dx)]] = test_ph_tidy
 }
 ```
-
-
-## Interactive Survival Graph
-The interactive survival graph is designed to facilitate the analysis of different patient groups by inputting their specific data. This feature allows users to observe and compare how various factors impact survival rates across different groups. As shown in the graph, users can select patient attributes such as age at diagnosis, disease duration, ACE-III total scores, and gender, along with specific dementia diagnoses. By adjusting these parameters, the graph dynamically illustrates the survival probabilities over time, enabling a detailed comparison between two distinct patient groups. 
 
 ```{r}
 #| panel: fill
@@ -251,9 +255,15 @@ ggplot(data = new_patients()) + geom_step(aes(x = time, y = surv, color = obs), 
 
 ```
 
-## Significance of variables
+# Significance of Factors' Impact
 
-```{r}
+Given the absence of censored data, a parametric log-normal regression model was applied under two distinct scenarios: one incorporating diagnosis types as a variable to assess overall impact, and another providing a more detailed analysis of each individual diagnosis.
+
+The dataset demonstrated multicollinearity, particularly evident with "ACE-III Total" which aggregates all other ACE-III component scores. Such multicollinearity can obscure reliable coefficient estimation and complicate interpretation. To mitigate this, the Variance Inflation Factor (VIF) was employed to identify high multicollinearity, resulting in the exclusion of "ACE-III Total" from the predictors (See Appendix for more details). 
+
+For effective comparison of the different covariates importance, scaling of the data was essential to standardize the numerical predictors. Although this scaling complicates the interpretation of individual factors' direct impact, it facilitates an assessment of the effect size attributed to each variable based on the magnitude of its coefficient. Variables with a greater coefficient magnitude exert a more pronounced influence on the time from diagnosis to death.
+
+```{r, warnings = FALSE, message= FALSE}
 
 
 suppressMessages({
@@ -262,6 +272,8 @@ library(rms) #Important: Leave library RMS here to not break shiny
 })
 })
 
+data$`CBI::PercentSleepFCorrected`  = gsub("?", NA, data$`CBI::PercentSleepFCorrected`, fixed = TRUE)
+data$`CBI::PercentBeliefsFCorrected`  = gsub("?", NA, data$`CBI::PercentBeliefsFCorrected`, fixed = TRUE)
 
 data$`CBI::PercentSleepFCorrected` = as.numeric(data$`CBI::PercentSleepFCorrected`)
 data$`CBI::PercentBeliefsFCorrected` = as.numeric(data$`CBI::PercentBeliefsFCorrected`)
@@ -281,7 +293,6 @@ colnames(data_stand)[colnames(data_stand) == "data$`Diagnosis till death`"] <- "
 data_stand = data_stand %>% drop_na()
 ```
 
-
 ```{r}
 # colnames(data_stand_no_high_vif)
 data_stand_no_high_vif = data_stand %>% select(-c(`ACEIII::ACEIIITotal`))
@@ -291,18 +302,10 @@ fit <- survreg(Surv(`Diagnosis till death`) ~ ., data = data_stand_no_high_vif, 
 vif <- rms::vif(fit)
 ```
 
-```{r, fig.width= 16, fig.height=12}
+## Significance of factors across all dementia diagnosis
 
-colnames(data_stand_no_high_vif) = gsub("FCorrected", "", colnames(data_stand_no_high_vif))
-colnames(data_stand_no_high_vif) = gsub("ClinicalAssessment::", "", colnames(data_stand_no_high_vif))
+A comprehensive test was performed to evaluate the overall significance of observations across each diagnostic category, analyzing the effects of outcomes in relation to the 18 factors provided by the client. Furthermore, the model incorporated diagnosis type as a covariate to enhance the understanding of its influence on the outcomes.
 
-corr<-cor(data_stand_no_high_vif[4:21])
-ggcorrplot(corr, type = "lower", ggtheme = ggplot2::theme_void, lab = TRUE,
-    colors = c("#6D9EC1", "white", "#E46726")
-  ) + scale_y_discrete(position='right')
-```
-
-### Overall significance for all dementia diagnosis
 ```{r}
 summary_cox_full <- summary(fit)
 
@@ -314,12 +317,11 @@ rownames(coefs)<- sub("`", " ", rownames(coefs))
 colnames(coefs) <- c("Coefficient", "Std. Error", "z value", "p value")
 significant_vars <- coefs[coefs[, "p value"] < 0.05, ]
 coefs_sorted <- coefs[order(abs(coefs[,"Coefficient"]), decreasing = TRUE), ]
-styled_table_for_full_model <- coefs_sorted %>% kable() %>%
+styled_table_for_full_model <- coefs_sorted %>% kable(caption = paste("Table 11 : Distribution of Diagnosis Types")) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 
 
 ```
-
 
 ```{r}
 rows_to_remove <- c("(Intercept)", "Log(scale)", "Diagnosis_nameFTD-MND")
@@ -336,31 +338,24 @@ ggplot(significant_vars, aes(x = rownames(significant_vars), y = abso, fill = Co
                     name = "Impact Type") +
   labs(title = "Impact of Significant Coefficients", x = "Factors", y = "Coefficients Impact") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(caption = "Figure 1: Comprehensive model")  +  # Set the caption
+  theme(plot.caption = element_text(size = 14))
 
 
 ```
 
-Since there is no censored data, we applied the **survreg** function with a "lognormal" distribution to fit a parametric survival regression model. 
+In the comprehensive model that accounted for all variables, a bar plot was used to visualize the significant predictors. These included: "Disease duration at diagnosis," indicating the number of years a person has experienced symptoms prior to their clinic visit; "ACEIII::SubtotalFluency," which assesses verbal fluency integrity using a cognitive screening tool; "ACEIII::SubtotalVisuospatial," evaluating visuospatial abilities; and "CBI::PercentSelfCareFCorrected," reflecting the percentage of the maximum achievable score in self-care as assessed by The Cambridge Behavioural Inventory-Revised (CBI-R), with higher scores indicating superior self-care performance.
 
-The dataset exhibits multicollinearity, which means some variables are highly correlated. For example, "ACE-III Total" is the total score on the Addenbrooke's Cognitive Examination-III test (the sum of all other ACE-III columns). Multicollinearity is likely to result in unreliable coefficient estimation and difficult interpretation. Thus, we applied the Variance Inflation Factor (VIF) to detect multicollinearity. VIF values show the strength of the correlation between the independent variables. To avoid problems caused by multicollinearity, we only considered variables with lower VIF values. The variables with lower VIF values can display characteristics of omitted variables, so we did not lose information from the dataset.
+The type of effect each variables has on the outcome is depicted in the barchart; an orange bar signifies a positive impact on the model, while those in blue indicate a negative impact.
 
-We scaled the data to ensure data in the same scale, so the variables with a high magnitude of coefficient have a more significant influence on our dependent variable "Diagnosis till death". For the full model considering all variables, we presented a bar plot to visualise the top 4 significant variables: 
-<br> - Disease duration at diagnosis: the number of years the person has been experiencing symptoms before coming into the clinic.
-<br> - ACEIII::SubtotalFluency: An examination of the integrity of verbal fluency by a cognitive screening tool.
-<br> - ACEIII::SubtotalVisuospatial: An examination of the integrity of visuospatial by a cognitive screening tool.
-<br> - CBI::PercentSelfCareFCorrected: The percentages of the maximum achievable score in self-care examines by The Cambridge Behavioural Inventory-Revised (CBI-R). Higher scores denote better performance in self care.
+It was also observed that when different diagnosis types were incorporated into the model, the FTD-MND type emerged as a significant factor, suggesting that having FTD-MND has a statistically measurable impact on the outcome compared to the base level, which is the AD type. Given that FTD-MND was not the primary focus of the investigation, it was excluded from the chart. Full details of this decision are documented in the appendix.
 
-The variables shown in orange play a positive impact on the model, and the variables shown in blue play a negative impact on the model. 
+## Significance of factors by dementia diagnosis
 
-More details for the full model are listed in the Appendix.
+While the initial model provided a comprehensive overview of general survival impacts, an alternative approach was to evaluate the effects of each factor within specific diagnosis types. Consequently, individual models were fitted for each type of dementia diagnosis. However, certain diagnosis groups—specifically nfvPPA + Parkinson’s plus, PSP, and svPPA—suffered from insufficient observations, which likely led to over-fitting. Over-fitting tend to manifested as models capturing noise rather than true underlying patterns, exacerbated by the fact that the 18 covariates used in each model sometimes exceeded the number of observations available for these diagnosis types (refer to Appendix for details). As a result, the analysis was concentrated on dementia groups with adequate data, identifying significant covariates that influenced the time from diagnosis to death.
 
-### Significance of variabes by dementia group
 
-```{r}
-# list observations in each categories
-table(data_stand$Diagnosis_name)
-```
 
 ```{r}
 unique_dx = c("AD", "bvFTD", "CBS","FTD-MND","lvPPA","nfvPPA")                   
@@ -406,102 +401,109 @@ for (name in unique_dx) {
 ```
 
 ::: panel-tabset
-
 ```{r, results='asis'}
 #| warning: false
+figure_number <- 2  # Initial figure number
 
-iwalk(plot_diag, ~ {
-      cat('## ', .y, '\n\n')
-      print(.x$plot)
+purrr::iwalk(plot_diag, ~ {
+  cat('## Figure ', figure_number, ':', .y, '\n\n', sep = "")
   
-      cat("\n\n") })
+  print(.x$plot)
+  cat("\n\n")
+  
+  # Increment the figure number by 1
+  figure_number <<- figure_number + 1
+})
+
 
 
 ```
 :::
 
-```{r}
-# combined_df = do.call(rbind, coeffs_significance)
-# ggplot(combined_df, aes(x = Variable, y = Coefficient)) +
-#   geom_col() +  # geom_col uses y values directly for bar heights
-#   facet_wrap(~name) +  # Faceting by 'diagnosis'
-#   theme_minimal() + 
-#   labs(
-#     title = "Coefficient by Variable across Diagnoses",
-#     x = "Variable",
-#     y = "Coefficient"
-#   ) +
-#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
-```
+Significant variables impacting the survival times for each dementia group were identified through visualization in the analysis. Key findings include:
 
-These are nine different dementia groups. We counted the number of observations for each group. Since there are no sufficient observations in the "nfvPPA + Parkinson’s plus" group, "PSP" group, and "svPPA" group, there is an overfitting. The insufficient data probably leads to a model that is overly tailored to samples by capturing noise rather than the underlying pattern.
+-   Alzheimer's Disease (AD): "ACEIII::SubtotalVisuospatial" positively affects survival, whereas "EducationYearsTotal" and "Age at diagnosis" have a detrimental impact.
 
-Besides, from previous analysis, we found "Diagnosis_number" plays an important role, so we constructed models for dementia groups with enough data. From above plots, we visualised significant variables for each dementia group.
+-   Behavioral Variant Frontotemporal Dementia (bvFTD): Positive influences are noted from "CBI::PercentMemory", "ACEIII::SubtotalVisuospatial", and "ACEIII::SubtotalFluency"; "CBI::PercentSelfCare" exerts a negative effect.
 
-<br> - AD: "ACEIII::SubtotalVisuospatial" has a positive impact, and "EducationYearsTotal" and "Age at diagnosis" have a negative impact on "Diagnosis till death".
+-   Corticobasal Syndrome (CBS): "ACEIII::SubtotalAttention" enhances survival prospects, while "CBI::PercentEating" and "CBI::PercentAbnormal" reduce them.
 
-<br> - bvFTD: "CBI::PercentMemory", "ACEIII::SubtotalVisuospatial", and "ACEIII::SubtotalFluency" have a positive impact, and "CBI::PercentSelfCare" has a negative impact on "Diagnosis till death".
+-   FTD-Motor Neuron Disease (FTD-MND): Positive contributions come from "Sex (Male 1, Female 2)" and "Disease duration at diagnosis"; "CBI::PercentAbnormal" negatively influences outcomes.
 
-<br> - CBS: There are many variables having impact on "Diagnosis till death". "ACEIII::SubtotalAttention" has a positive impact, and "CBI::PercentEating" and "CBI::PercentAbnormal" have a negative impact.
+-   Logopenic Variant Primary Progressive Aphasia (lvPPA): "CBI::PercentSelfCare" and "ACEIII::SubtotalLanguage" are beneficial; "CBI::PercentAbnormal" is harmful.
 
-<br> - FTD-MND: There are many variables having impact on "Diagnosis till death". "Sex (Male 1, Female 2)" and "Disease duration at diagnosis" have a positive impact, and "CBI::PercentAbnormal" has a negative impact.
+-   Nonfluent Variant Primary Progressive Aphasia (nfvPPA): Positives include "Sex (Male 1, Female 2)", "CBI::PercentEating", and "ACEIII::SubtotalFluency"; "ACEIII::SubtotalAttention" impacts negatively.
 
-<br> - lvPPA: There are many variables having impact on "Diagnosis till death". "CBI::PercentSelfCare" and "ACEIII::SubtotalLanguage" have a positive impact, and "CBI::PercentAbnormal" has a negative impact.
+The recurrent significance of variables such as "Age at diagnosis", and "Disease duration at diangosis", several ACEIII scores and CBI scores across most dementia groups underscores their importance to time from diagnosis to death, as well as supporting the client's choice of covaraites in the interactive survival graph.
 
-<br> - nfvPPA: "Sex (Male 1, Female 2)", "CBI::PercentEating", "ACEIII::SubtotalFluency" have a postive impact, and "ACEIII::SubtotalAttention" has a negative impact on "Diagnosis till death".
+# Conclusion
 
-It is same as the previous bar plot. The variables shown in orange and blue play a positive and negative impact on the model respectively. We can conclude "ACEIII::SubtotalVisuospatial", "ACEIII::SubtotalFluency", "CBI::PercentSelfCare", "ACEIII::SubtotalAttention", "CBI::PercentEating", "CBI::PercentAbnormal" are significant for most dementia groups.
+In conclusion, this report has successfully met the client's two primary objectives. Firstly, it offers an interactive survival chart grounded on the Cox Proportional Hazard model, illustrating the interplay among the four key covariates. Secondly, two distinct approaches were implemented to examine the impact of the 18 covariates of interest to the client. While the first approach provides a comprehensive overview of the current data, the second approach is designed to be concise and can be easily scalable through the inclusion additional diagnosis types as more data becomes available.
 
-More details for the each dementia group model are listed in the Appendix.
+# Appendix
 
+## Testing Proportional Harzard
 
-## Appendix
-
-
-### Testing Proportional Harzard
-
-:::{.panel-tabset}
-
+::: panel-tabset
 ```{r, results='asis'}
 #| warning: false
 
 headings <- names(test_ph_list)
-
+table_number =  1 
 for (i in seq_along(test_ph_list)) {
-  cat("# ", headings[i], "\n")
+  cat("# Table ", table_number, ": ", headings[i], "\n", sep = "")
   print(kable(test_ph_list[[i]], format = "markdown") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")))
+  table_number = table_number + 1
   cat("\n\n")}
 ```
-
 :::
 
-### Results from all dementia diagnosis
+## Checking multi-collinearity
 
-```{r}
-styled_table_for_full_model 
+```{r, fig.width= 16, fig.height=12}
+
+colnames(data_stand_no_high_vif) = gsub("FCorrected", "", colnames(data_stand_no_high_vif))
+colnames(data_stand_no_high_vif) = gsub("ClinicalAssessment::", "", colnames(data_stand_no_high_vif))
+
+corr<-cor(data_stand_no_high_vif[4:21])
+ggcorrplot(corr, type = "lower", ggtheme = ggplot2::theme_void, lab = TRUE,
+    colors = c("#6D9EC1", "white", "#E46726")
+  ) + scale_y_discrete(position='right')+
+  labs(caption = "Figure 8: Correlation Plot") + theme(plot.caption = element_text(size = 16))
 ```
 
+## Number of observations per dementia diagosis type
+```{r}
+# list observations in each categories
+table(data_stand$Diagnosis_name) %>% kable(format = "markdown", col.names = c("Diagnosis Type", "Number of Observations"), caption = paste("Table 10 : Distribution of Diagnosis Types")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) 
+```
+## Results from all dementia diagnosis
 
-### Results from each dementia diagnosis 
+```{r}
+styled_table_for_full_model
+```
 
-:::{.panel-tabset}
+## Results from each dementia diagnosis
 
+::: panel-tabset
 ```{r, results='asis'}
 #| warning: false
 
 headings <- names(coeffs_list)
-
+table_number = 12
 for (i in seq_along(coeffs_list)) {
-  cat("# ", headings[i], "\n")
+  cat("# Table ", table_number, ": ", headings[i], "\n", sep = "")
   print(kable(coeffs_list[[i]], format = "markdown") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")))
+table_number = table_number+1
   cat("\n\n")}
+
 
 ```
 :::
 
-## Contribution
+# Contribution
 
-Linh Trinh - Analysis and Report writing.
-Betty Zhao - Analysis and Report writing.
+Linh Trinh - Analysis and Report writing. Betty Zhao - Analysis and Report writing.
