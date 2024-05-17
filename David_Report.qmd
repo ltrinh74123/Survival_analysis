@@ -325,9 +325,10 @@ styled_table
 ### Significance of variabes by dementia group
 
 ```{r}
-
-significant_vars_list = list()
-
+unique_dx = c("AD", "bvFTD", "CBS","FTD-MND","lvPPA","nfvPPA")                   
+coeffs_list = list()
+coeffs_significance = list()
+plot = list()
 for (name in unique_dx) {
   data_stand_filtered = data_stand_no_high_vif %>% filter(Diagnosis_name == name)
   data_stand_filtered = data_stand_filtered %>% select(-Diagnosis_name)
@@ -338,33 +339,41 @@ for (name in unique_dx) {
   rownames(coefs)<- sub("`", "", rownames(coefs))
   rownames(coefs)<- sub("`", " ", rownames(coefs))
   colnames(coefs) <- c("Coefficient", "Std. Error", "z value", "p value")
-  significant_vars <- coefs[coefs[, "p value"] < 0.05, ]
-  significant_vars_sorted <- significant_vars[order(abs(significant_vars[,"Coefficient"]), decreasing = TRUE), ]
-  significant_vars_list[[name]] = significant_vars_sorted
+  coefs_sorted <- coefs[order(abs(coefs[,"Coefficient"]), decreasing = TRUE), ]
+  coeffs_list[[name]] = coefs_sorted
+
+  
+  
+  significant_vars <- coefs_sorted[coefs_sorted[, "p value"] < 0.05, ]
+  rows_to_remove <- c("(Intercept)", "Log(scale)")
+  significant_vars <- significant_vars[!rownames(significant_vars) %in% rows_to_remove, ]
+  significant_vars$Variable <- rownames(significant_vars)
+  significant_vars$name <- name
+  coeffs_significance[[name]] = significant_vars
+
 
 }
 
+
+```
+
+```{r}
+# combined_df = do.call(rbind, coeffs_significance)
+# ggplot(combined_df, aes(x = Variable, y = Coefficient)) +
+#   geom_col() +  # geom_col uses y values directly for bar heights
+#   facet_wrap(~name) +  # Faceting by 'diagnosis'
+#   theme_minimal() + 
+#   labs(
+#     title = "Coefficient by Variable across Diagnoses",
+#     x = "Variable",
+#     y = "Coefficient"
+#   ) +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 ```
 
 
 
 
-:::{.panel-tabset}
-
-```{r, results='asis'}
-#| warning: false
-
-headings <- names(significant_vars_list)
-
-for (i in seq_along(significant_vars_list)) {
-  cat("# ", headings[i], "\n")
-  print(kable(significant_vars_list[[i]], format = "markdown") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed")))
-  cat("\n\n")}
-
-```
-
-:::
 
 
 ## Appendix
@@ -384,6 +393,23 @@ for (i in seq_along(test_ph_list)) {
   print(kable(test_ph_list[[i]], format = "markdown") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")))
   cat("\n\n")}
+```
+
+:::
+
+:::{.panel-tabset}
+
+```{r, results='asis'}
+#| warning: false
+
+headings <- names(coeffs_list)
+
+for (i in seq_along(coeffs_list)) {
+  cat("# ", headings[i], "\n")
+  print(kable(coeffs_list[[i]], format = "markdown") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")))
+  cat("\n\n")}
+
 ```
 
 :::
