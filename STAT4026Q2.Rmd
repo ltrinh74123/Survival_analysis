@@ -82,5 +82,13 @@ for (name in unique_diagnosis) {
 }
 ```
 
+```{r}
+data$status <- rep(1, nrow(data)) #add status
+surv_model1 <- survreg(Surv(`Diagnosis till death`, status) ~., dist = "weibull", data = data)
+summary(surv_model1)
+
+surv_model2 <- survreg(Surv(`Diagnosis till death`, status) ~., dist = "lognormal", data = data)
+summary(surv_model2)
+```
 
 
