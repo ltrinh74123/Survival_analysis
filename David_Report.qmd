@@ -312,7 +312,7 @@ coefs <- summary_cox_full$table %>% as.data.frame()
 rownames(coefs)<- sub("`", "", rownames(coefs)) 
 rownames(coefs)<- sub("`", " ", rownames(coefs)) 
 colnames(coefs) <- c("Coefficient", "Std. Error", "z value", "p value")
-# significant_vars <- coefs[coefs[, "p value"] < 0.05, ]
+significant_vars <- coefs[coefs[, "p value"] < 0.05, ]
 coefs_sorted <- coefs[order(abs(coefs[,"Coefficient"]), decreasing = TRUE), ]
 
 
@@ -321,6 +321,37 @@ styled_table <- coefs_sorted %>% kable() %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 styled_table 
 ```
+
+
+```{r}
+# list observations in each categories
+table(data_stand$Diagnosis_name)
+
+# bar plot for significant coefficients
+significant_vars
+
+library(ggplot2)
+
+# Create a data frame
+library(dplyr)
+significant_vars
+significant_vars$abso = abs(significant_vars$Coefficient)
+
+
+# Create the barplot
+ggplot(significant_vars, aes(x = rownames(significant_vars), y = abso, fill = Coefficient > 0)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_manual(values = c("#6D9EC1", "#E46726"),
+                    labels = c("Negative Coefficient", "Positive Coefficient"),
+                    name = "Coefficient Sign") +
+  labs(title = "Magnitude of Significant Coefficients", x = "Variables", y = "Magnitude of Coefficients") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
 
 ### Significance of variabes by dementia group
 
@@ -355,34 +386,6 @@ for (name in unique_dx) {
 }
 
 
-```
-
-```{r}
-# list observations in each categories
-table(data_stand$Diagnosis_name)
-
-# bar plot for significant coefficients
-significant_vars
-
-library(ggplot2)
-
-# Create a data frame
-library(dplyr)
-datacoef <- data.frame(significant_vars)
-datacoef <- datacoef %>%
-  mutate(new_column = datacoef[1,] * 2)
-datacoef$coef
-
-# Create the barplot
-ggplot(data, aes(x = rownames(datacoef), y = abs(datacoef$coef), fill = coefficients > 0)) +
-  geom_col() +  # Using geom_col which is equivalent to geom_bar(stat="identity")
-  coord_flip() +  # Flip the coordinates for better visualization of long names
-  scale_fill_manual(values = c("#6D9EC1", "#E46726"), 
-                    labels = c("Negative Coefficient", "Positive Coefficient"),
-                    name = "Coefficient Sign") +
-  labs(title = "Magnitude of Significant Coefficients", x = "Variables", y = "Magnitude of Coefficients") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 
