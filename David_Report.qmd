@@ -358,6 +358,36 @@ for (name in unique_dx) {
 ```
 
 ```{r}
+# list observations in each categories
+table(data_stand$Diagnosis_name)
+
+# bar plot for significant coefficients
+significant_vars
+
+library(ggplot2)
+
+# Create a data frame
+library(dplyr)
+datacoef <- data.frame(significant_vars)
+datacoef <- datacoef %>%
+  mutate(new_column = datacoef[1,] * 2)
+datacoef$coef
+
+# Create the barplot
+ggplot(data, aes(x = rownames(datacoef), y = abs(datacoef$coef), fill = coefficients > 0)) +
+  geom_col() +  # Using geom_col which is equivalent to geom_bar(stat="identity")
+  coord_flip() +  # Flip the coordinates for better visualization of long names
+  scale_fill_manual(values = c("#6D9EC1", "#E46726"), 
+                    labels = c("Negative Coefficient", "Positive Coefficient"),
+                    name = "Coefficient Sign") +
+  labs(title = "Magnitude of Significant Coefficients", x = "Variables", y = "Magnitude of Coefficients") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
+```{r}
 # combined_df = do.call(rbind, coeffs_significance)
 # ggplot(combined_df, aes(x = Variable, y = Coefficient)) +
 #   geom_col() +  # geom_col uses y values directly for bar heights
