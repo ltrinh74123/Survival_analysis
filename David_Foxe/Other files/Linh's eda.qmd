@@ -1,0 +1,64 @@
+---
+title: "Linh's part"
+format: html
+editor: visual
+---
+
+```{r}
+library(survminer)
+library(dplyr)
+library(survival)
+data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
+```
+
+```{r}
+data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+```
+
+```{r}
+data[data == 999.0] <- NA
+data = data %>% filter(!Diagnosis_number == 2.5)
+data$Diagnosis_number %>% table()
+```
+
+```{r}
+fit <- survfit(Surv(`Diagnosis till death`,rep(1, length(`Diagnosis till death`))) ~ Diagnosis_number, data = data)
+```
+
+```{r}
+ggsurvplot(fit, data = data, risk.table = F)
+```
+
+```{r}
+ggsurvplot
+```
+
+```{r}
+res_cox <- coxph(Surv(`Diagnosis till death`) ~ EducationYearsTotal + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  data, model = TRUE)
+res_cox
+```
+
+```{r}
+unique_dia_number = data$Diagnosis_number %>% unique()
+for (dia_number in unique_dia_number) {
+  filtered_data = data %>% filter(Diagnosis_number == dia_number)
+  cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filtered_data, model = TRUE)
+  print(cox_model %>% summary())
+}
+```
+
+```{r}
+plot(survfit(cox_model), ylab = "Probability of Survival",
+     xlab = "Time", col = c("red", "black", "black"))
+```
+
+```{r}
+newdata = data.frame(`Sex (Male 1, Female 2)` = 2, `Age at diagnosis`  = 80, 
+                                            `Disease duration at diagnosis` = 6,
+                                            `ACEIII::ACEIIITotal`  = 60, 
+                     check.names =F)
+fit <- survfit(cox_model, newdata)
+fit
+plot(fit, ylab = "Probability of Survival",
+     xlab = "Time", col = c("red", "black", "black"))
+```

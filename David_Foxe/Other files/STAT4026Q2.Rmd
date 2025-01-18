@@ -1,0 +1,94 @@
+---
+title: "STAT4026Consultation3Q2"
+author: '500199066'
+date: "2024-05-13"
+output: html_document
+---
+
+```{r}
+library(readxl)
+library(tidyverse)
+library("survival")
+library("survminer")
+library(scales)
+data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
+```
+
+```{r}
+# data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+data[data == 999.0] <- NA
+data = data %>% filter(!Diagnosis_number == 2.5)
+data$Diagnosis_number = as.factor(data$Diagnosis_number)
+data$`CBI::PercentSleepFCorrected` = as.numeric(data$`CBI::PercentSleepFCorrected`)
+data$`CBI::PercentBeliefsFCorrected` = as.numeric(data$`CBI::PercentBeliefsFCorrected`)
+mapping_vector <- c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND")
+names(mapping_vector) <- c("1", "10", "2", "16", "12", "4", "3", "14", "9")
+data$Diagnosis_name <- mapping_vector[as.character(data$Diagnosis_number)]
+```
+
+```{r}
+#Non numeric variables
+non_numeric_vars <- names(data)[!sapply(data, is.numeric)]
+#Delete non numeric variables
+df <- data %>% select(-'PID', -`Diagnosis_name`, -'Diagnosis_number', -`Onset till death`, -`Original_order`, -'SummaryPrimaryDiagnosis_descriptor', -`DAD::ExportTotalIadls`,	-`DAD::ExportTotalDad`,	-`DAD::ExportTotalBadl`)
+#Standarize data
+data_standardized <- as.data.frame(lapply(df, rescale), check.names = FALSE)
+```
+
+```{r}
+#Combine non numeric variables
+data_stand <- cbind(data$Diagnosis_name, data_standardized)
+
+colnames(data_stand)[colnames(data_stand) == "data$Diagnosis_name"] <- "Diagnosis_name"
+colnames(data_stand)[colnames(data_stand) == "data$`Sex (Male 1, Female 2)`"] <- "Sex (Male 1, Female 2)"
+data_stand$`Sex (Male 1, Female 2)` = as.factor(data_stand$`Sex (Male 1, Female 2)`)
+# colnames(data_stand)[colnames(data_stand) == "data$`CBI::PercentBeliefsFCorrected`"] <- "CBI::PercentBeliefsFCorrected"
+# colnames(data_stand)[colnames(data_stand) == "data$`CBI::PercentSleepFCorrected`"] <- "CBI::PercentSleepFCorrected"
+```
+
+```{r}
+library(survival)
+library(rms)  # one possible source for a `vif`-function .... there are many
+data_stand_no_high_vif = data_stand %>% select(-c(`ACEIII::ACEIIITotal`))
+fit <- coxph(Surv(`Diagnosis till death`) ~., data= data_stand_no_high_vif)
+fit
+vif <- rms::vif(fit)
+vif
+```
+
+```{r}
+coefs <- summary(fit)$coefficients
+
+coef_df <- data.frame(
+  Coefficient = coefs[, "coef"],
+  AbsCoefficient = abs(coefs[, "coef"]),
+  PValue = coefs[, "Pr(>|z|)"]
+)
+
+sorted_coef_df <- coef_df[order(-coef_df$AbsCoefficient),]
+top_8_variables <- head(sorted_coef_df, 8)
+
+print(top_8_variables)
+```
+
+
+```{r}
+unique_diagnosis= data$Diagnosis_name %>% unique()
+for (name in unique_diagnosis) {
+  data_stand_filtered = data_stand_no_high_vif %>% filter(Diagnosis_name == name)
+  data_stand_filtered = data_stand_filtered %>% select(-Diagnosis_name)
+  fit <- coxph(Surv(`Diagnosis till death`) ~., data= data_stand_filtered)
+  print(fit)
+}
+```
+
+```{r}
+data$status <- rep(1, nrow(data)) #add status
+surv_model1 <- survreg(Surv(`Diagnosis till death`, status) ~., dist = "weibull", data = data)
+summary(surv_model1)
+
+surv_model2 <- survreg(Surv(`Diagnosis till death`, status) ~., dist = "lognormal", data = data)
+summary(surv_model2)
+```
+
+

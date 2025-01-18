@@ -1,0 +1,509 @@
+---
+title: "STAT3926/STAT4026: Statistical Consulting"
+subtitle: "Survival Analysis"
+author:
+  - "Prepared by: 510288769, 500199066"
+  - "Prepared for: David Foxe"
+title-block-banner: "#d85f33"
+date: "`r format(Sys.time(), '%d %B, %Y %H:%M')`"
+format: 
+  html: 
+    theme:
+      light: [united, style/custom_styles.scss]
+      dark: [darkly, style/custom_styles.scss]
+    embed-resources: true
+    code-fold: true
+    code-tools: true
+    includes:
+      in-header: style/www/header.html 
+    unsafe: true
+    smooth-scroll: true
+table-of-contents: true
+number-sections: false
+server: shiny
+---
+
+```{r setup, messages = FALSE, echo=FALSE, warning= FALSE}
+suppressMessages({
+  suppressWarnings({
+    library(purrr)
+    library(shiny)
+    library(survminer)
+    library(readxl)  
+    library(DT) 
+    library(ggplot2)
+    library(tidyverse)
+    library(broom)
+    library(survival)
+    library(dplyr)
+    library(kableExtra)
+    library(scales)
+    library(ggcorrplot)
+  })
+})
+
+```
+
+# Executive Summary
+
+This report aims to demonstrate the application of a Cox Proportional Hazard regression model to examine how four key covariates — Sex, Age at Diagnosis, Disease Duration at Diagnosis, and ACE-III Score — affect the survival probability of individuals across various dementia diagnoses. Additionally, a log normal regression was implemented to identify and order the level of impact from the same variables in the cox regression as well as more additional ones like cognitive and behavioral has on survival, both holistically across all dementia types and within each specific dementia diagnosis. It was found that the holistic approach has labelled the disease duration at diagnosis and some sub categories under ACE-III and Cambridge Behavioural Inventory (CBI) scores as significant factors, but under each different diagnosis types, the factors would vary in importance.
+
+```{r}
+data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
+data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+data[data == 999.0] <- NA
+data = data %>% filter(!Diagnosis_number == 2.5)
+mapping_vector <- c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND")
+names(mapping_vector) <- c("1", "10", "2", "16", "12", "4", "3", "14", "9")
+data$Diagnosis_name <- mapping_vector[as.character(data$Diagnosis_number)]
+
+```
+
+# Introduction
+
+Research on dementia survival has led researchers, like the client, to note various factors that potentially impact survivability. Understanding these factors is crucial for improving patient care and tailoring interventions to individual needs. This report focuses on two statistical approaches to analyze survival probabilities in dementia patients: the Cox Proportional Hazards model and the log-normal regression model. The Cox model, a widely used method in survival analysis, examines the relationship between survival time and key covariates, providing insights into how these factors affect patient outcomes. The log-normal regression model, which includes the same covariates as the Cox model along with additional variables, offers a comprehensive view of the predictors influencing survival.
+
+## Client's Aims
+
+The first objective of this report is to produce an interactive survival graph that provides a comprehensive exploration of the time from formal diagnosis to death based on four key covariates: age at diagnosis, sex, disease duration at diagnosis, and overall total cognitive performance measured by the ACE-III test. These covariates were selected by the client based on their expertise and the availability of data. The second aim is to explore additional variables, including those from the CBI carer questionnaire, family history of dementia as defined by a Goldman Score, and cognitive abilities. The client suspects these variables may influence survival rates and wants more clarity on the extent of the impact each factor has on survival.
+
+# Interactive Survival Graph
+
+The interactive survival graph is designed to facilitate the analysis of different patient groups by inputting their specific data. This feature allows users to observe and compare how various factors impact survival rates across different groups. As shown in the interactive graph below, users can select patient attributes such as age at diagnosis, disease duration, ACE-III total scores, and gender, along with the specific dementia diagnoses. By adjusting these parameters, the graph dynamically illustrates the survival probabilities over time, enabling a detailed comparison between two distinct patient groups.
+
+## Model
+
+To meet the client's objective of understanding how various covariates affect different dementia patient groups, we implemented a Cox Proportional Hazards regression model for each type of dementia, serving as the foundation of the interactive survival graph. This approach was informed by previous client analyses that highlighted statistically significant survival differences across dementia diagnoses. Each model accounted for age at diagnosis, sex, disease duration at diagnosis, and overall cognitive performance as assessed by the ACE-III test. While the Cox regression model does not assume any underlying data distribution, it does require other assumptions to be satisfied (details in the appendix).
+
+## Interactive Graph for Comparasion
+
+```{r}
+subset_columns <- c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number")
+
+# Remove rows with missing values in the specified subset of columns
+data_cleaned <- data %>%
+  filter(rowSums(is.na(select(., all_of(subset_columns)))) == 0)
+data_cleaned = data_cleaned %>% select(c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number", "Diagnosis_name"))
+
+model_list = list()
+test_ph_list = list()
+covariate_names = c("Age at diagnosis", "Sex", "Disease duration at diagnosis", "ACE-III Total", "GLOBAL")
+unique_dx = data_cleaned$Diagnosis_name %>% unique()
+for (dx in unique_dx) {
+  filtered_data = data_cleaned %>% filter(Diagnosis_name == dx)
+  cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filtered_data, model = TRUE)
+  
+  zph <- cox.zph(cox_model) 
+  
+  tidy_zph <- data.frame(
+    Covariate = covariate_names,
+    Chisq = zph$table[, "chisq"],
+    `Degrees of Freedom` = zph$table[, "df"],
+    `p-value` = zph$table[, "p"],
+    check.names = FALSE
+  )
+  
+  test_ph_tidy = tidy_zph %>% mutate(
+    Chisq = round(Chisq, 2),
+    `p-value` = round(`p-value`, 3)
+  )
+  row.names(test_ph_tidy) <- NULL
+
+  model_list[[as.character(dx)]] = cox_model
+  test_ph_list[[as.character(dx)]] = test_ph_tidy
+}
+```
+
+```{r}
+#| panel: fill
+plotOutput('plot')
+```
+
+::: {layout="[[1,1]]"}
+```{r}
+#| panel: input
+h5("Patient Group 1")
+numericInput('age_1', 'Age at Diagnosis', 70, min = 1, max = 100)
+numericInput('duration_1', 'Disease duration at diagnosis', 3, min = 1, max = 100)
+numericInput('ace_total_1', 'ACEIII Total', 60, min = 1, max = 100)
+radioButtons("sex_1", "Sex", c("Male", "Female"), "Female", inline=TRUE)
+radioButtons("diagnosis_1", "Diagnosis", c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND"), inline=TRUE)
+```
+
+```{r}
+#| panel: input
+h5("Patient Group 2")
+numericInput('age_2', 'Age at Diagnosis', 70, min = 1, max = 100)
+numericInput('duration_2', 'Disease duration at diagnosis', 3, min = 1, max = 100)
+numericInput('ace_total_2', 'ACEIII Total', 60, min = 1, max = 100)
+radioButtons("sex_2", "Sex", c("Male", "Female"), inline = TRUE)
+radioButtons("diagnosis_2", "Diagnosis", c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND"), inline=TRUE)
+
+```
+:::
+
+```{r}
+#| context: server
+library(survival)
+library(tidyverse)
+library(survminer)
+library(pammtools)
+
+
+data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
+data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+data[data == 999.0] <- NA
+data = data %>% filter(!Diagnosis_number == 2.5)
+mapping_vector <- c("AD", "lvPPA", "bvFTD", "svPPA", "nfvPPA", "nfvPPA + Parkinson’s plus", "CBS", "PSP", "FTD-MND")
+names(mapping_vector) <- c("1", "10", "2", "16", "12", "4", "3", "14", "9")
+
+data$Diagnosis_name <- mapping_vector[as.character(data$Diagnosis_number)]
+subset_columns <- c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number")
+
+# Remove rows with missing values in the specified subset of columns
+data_cleaned <- data %>%
+  filter(rowSums(is.na(select(., all_of(subset_columns)))) == 0)
+data_cleaned = data_cleaned %>% select(c("Diagnosis till death", "Age at diagnosis", "Sex (Male 1, Female 2)", "Disease duration at diagnosis", "ACEIII::ACEIIITotal", "Diagnosis_number", "Diagnosis_name"))
+
+obs_start = data.frame(time = 0, surv = 1, upper = 1, lower = 1)
+
+reactiveData1 <- reactive({
+validate(
+      need(input$age_1 != "", "Please input an age number in patient group 1"),
+      need(input$duration_1 != "", "Please input a disease duration at diagnosis number in patient group 1"),
+      need(input$ace_total_1 != "", "Please input an ACE-III total in patient group 1")
+
+    )
+  sex_numeric_1 <- ifelse(input$sex_1 == "Male", 1, 2)
+      data.frame(
+    obs = "Patient Group 1",
+    `Sex (Male 1, Female 2)` = as.integer(sex_numeric_1), 
+    `Age at diagnosis` = input$age_1, 
+    `Disease duration at diagnosis` = input$duration_1,
+    `ACEIII::ACEIIITotal` = input$ace_total_1,
+    diagnosis = input$diagnosis_1,
+    check.names = FALSE)
+})
+
+reactiveData2 <- reactive({
+validate(
+      need(input$age_2 != "", "Please input an age number in patient group 2"),
+ need(input$duration_2 != "", "Please input a disease duration at diagnosis number in patient group 2"),
+      need(input$ace_total_2 != "", "Please input an ACE-III total in patient group 2")
+    )
+  sex_numeric_2 <- ifelse(input$sex_2 == "Male", 1, 2)
+      data.frame(
+    obs = "Patient Group 2",
+    `Sex (Male 1, Female 2)` = as.integer(sex_numeric_2), 
+    `Age at diagnosis` = input$age_2, 
+    `Disease duration at diagnosis` = input$duration_2,
+    `ACEIII::ACEIIITotal` = input$ace_total_2,
+    diagnosis = input$diagnosis_2,
+    check.names = FALSE)
+})
+
+
+
+#Make model for the diagnosis selected
+ rv_model_1 = reactive({
+   filter_data_1 = data_cleaned %>% filter(Diagnosis_name == reactiveData1()$diagnosis)
+   cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filter_data_1, model = TRUE)
+})
+
+ rv_model_2 = reactive({
+  filter_data_2 = data_cleaned %>% filter(Diagnosis_name == reactiveData2()$diagnosis)
+  cox_model <- coxph(Surv(`Diagnosis till death`) ~ `Age at diagnosis` + `Sex (Male 1, Female 2)` + `Disease duration at diagnosis` + `ACEIII::ACEIIITotal`, data =  filter_data_2, model = TRUE)
+ })
+
+#Fit the new data with the model and make a dataframe
+surv_fit_1 <- reactive({
+   # req(rv_model_1())
+   fit1 <- survfit(rv_model_1(), newdata = reactiveData1()[2:5]) %>% surv_summary() %>% as.data.frame() 
+  fit1 = bind_rows(fit1, obs_start)
+fit1 = fit1%>% mutate(obs = "Patient Group 1")
+ })
+
+ surv_fit_2 <- reactive({
+   # req(rv_model_2())
+   fit2 <- survfit(rv_model_2(), newdata = reactiveData2()[2:5]) %>% surv_summary() %>% as.data.frame()
+  fit2 = bind_rows(fit2, obs_start) %>% mutate(obs = "Patient Group 2")
+
+ })
+
+new_patients <- reactive({
+  new_obs <- rbind(surv_fit_1(), surv_fit_2())  # Combine the results
+})
+
+output$dataTable <- renderTable({
+  new_patients()
+})
+
+output$plot <- renderPlot({
+ggplot(data = new_patients()) + geom_step(aes(x = time, y = surv, color = obs), size = 0.8) + geom_stepribbon(aes(x = time, ymin = lower, ymax = upper, fill = obs), alpha = 0.2) + theme_bw() + ggtitle("Cox Proportional Hazards Regression on Survival in Dementia") + ylab("Survival Probability") + xlab("Years") + 
+    theme(legend.position = "right", 
+          legend.direction = "vertical", 
+          legend.key.size = unit(0.5, "cm"),
+          legend.text = element_text(size = 14), 
+          legend.title = element_text(size = 0),
+          legend.margin = ggplot2::margin(t = 0, unit = "pt"),
+          axis.title = element_text(face = "bold"),
+          plot.title = element_text(face = "bold", size = 16, hjust = 0.5)) +
+  scale_x_continuous(breaks = seq(min(new_patients()$time), max(new_patients()$time), by = 1)) +
+  theme(axis.text = element_text(size = 12),  # Set x and y tick size
+        axis.title = element_text(size = 14)) 
+})
+
+```
+
+# Significance of Factors' Impact
+
+Given the absence of censored data, a parametric log-normal regression model was applied under two distinct scenarios: one incorporating diagnosis types as a variable to assess overall impact, and another providing a more detailed analysis of each individual diagnosis.
+
+The dataset demonstrated multicollinearity, particularly evident with "ACE-III Total" which aggregates all other ACE-III component scores. Such multicollinearity can obscure reliable coefficient estimation and complicate interpretation. To mitigate this, the Variance Inflation Factor (VIF) was employed to identify high multicollinearity, resulting in the exclusion of "ACE-III Total" from the predictors (See Appendix for more details). 
+
+For effective comparison of the different covariates importance, scaling of the data was essential to standardize the numerical predictors. Although this scaling complicates the interpretation of individual factors' direct impact, it facilitates an assessment of the effect size attributed to each variable based on the magnitude of its coefficient. Variables with a greater coefficient magnitude exert a more pronounced influence on the time from diagnosis to death.
+
+```{r, warnings = FALSE, message= FALSE}
+
+
+suppressMessages({
+  suppressWarnings({
+library(rms) #Important: Leave library RMS here to not break shiny
+})
+})
+
+data$`CBI::PercentSleepFCorrected`  = gsub("?", NA, data$`CBI::PercentSleepFCorrected`, fixed = TRUE)
+data$`CBI::PercentBeliefsFCorrected`  = gsub("?", NA, data$`CBI::PercentBeliefsFCorrected`, fixed = TRUE)
+
+data$`CBI::PercentSleepFCorrected` = as.numeric(data$`CBI::PercentSleepFCorrected`)
+data$`CBI::PercentBeliefsFCorrected` = as.numeric(data$`CBI::PercentBeliefsFCorrected`)
+df <- data %>% select(-'PID', -`Diagnosis_name`, -'Diagnosis_number', -`Diagnosis till death`, -`Sex (Male 1, Female 2)`, -`Onset till death`, -`Original_order`, -'SummaryPrimaryDiagnosis_descriptor', -`DAD::ExportTotalIadls`,	-`DAD::ExportTotalDad`,	-`DAD::ExportTotalBadl`)
+data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
+
+
+#Standarize data
+data_standardized <- as.data.frame(lapply(df, scale), check.names = FALSE)
+
+data_stand <- cbind(data$Diagnosis_name, data$`Diagnosis till death`, data$`Sex (Male 1, Female 2)`, data_standardized)
+
+colnames(data_stand)[colnames(data_stand) == "data$Diagnosis_name"] <- "Diagnosis_name"
+colnames(data_stand)[colnames(data_stand) == "data$`Sex (Male 1, Female 2)`"] <- "Sex (Male 1, Female 2)"
+colnames(data_stand)[colnames(data_stand) == "data$`Diagnosis till death`"] <- "Diagnosis till death"
+
+data_stand = data_stand %>% drop_na()
+```
+
+```{r}
+# colnames(data_stand_no_high_vif)
+data_stand_no_high_vif = data_stand %>% select(-c(`ACEIII::ACEIIITotal`))
+fit <- survreg(Surv(`Diagnosis till death`) ~ ., data = data_stand_no_high_vif, dist = "lognormal")
+
+# fit <- coxph(Surv(`Diagnosis till death`) ~., data= data_stand_no_high_vif)
+vif <- rms::vif(fit)
+```
+
+## Significance of factors across all dementia diagnosis
+
+A comprehensive test was performed to evaluate the overall significance of observations across each diagnostic category, analyzing the effects of outcomes in relation to the 18 factors provided by the client. Furthermore, the model incorporated diagnosis type as a covariate to enhance the understanding of its influence on the outcomes.
+
+```{r}
+summary_cox_full <- summary(fit)
+
+coefs <- summary_cox_full$table %>% as.data.frame()
+
+# coefs <- summary_cox_full$coefficients %>% as.data.frame()
+rownames(coefs)<- sub("`", "", rownames(coefs)) 
+rownames(coefs)<- sub("`", " ", rownames(coefs)) 
+colnames(coefs) <- c("Coefficient", "Std. Error", "z value", "p value")
+significant_vars <- coefs[coefs[, "p value"] < 0.05, ]
+coefs_sorted <- coefs[order(abs(coefs[,"Coefficient"]), decreasing = TRUE), ]
+styled_table_for_full_model <- coefs_sorted %>% kable(caption = paste("Table 11 : Distribution of Diagnosis Types")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+
+
+```
+
+```{r}
+rows_to_remove <- c("(Intercept)", "Log(scale)", "Diagnosis_nameFTD-MND")
+significant_vars <- significant_vars[!rownames(significant_vars) %in% rows_to_remove, ]
+significant_vars$abso = abs(significant_vars$Coefficient)
+
+
+# Create the barplot
+ggplot(significant_vars, aes(x = rownames(significant_vars), y = abso, fill = Coefficient > 0)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_manual(values = c("#6D9EC1", "#E46726"),
+                    labels = c("Negative Impact", "Positive Impact"),
+                    name = "Impact Type") +
+  labs(title = "Impact of Significant Coefficients", x = "Factors", y = "Coefficients Impact") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(caption = "Figure 1: Comprehensive model")  +  # Set the caption
+  theme(plot.caption = element_text(size = 14))
+
+
+```
+
+In the comprehensive model that accounted for all variables, a bar plot was used to visualize the significant predictors. These included: "Disease duration at diagnosis," indicating the number of years a person has experienced symptoms prior to their clinic visit; "ACEIII::SubtotalFluency," which assesses verbal fluency integrity using a cognitive screening tool; "ACEIII::SubtotalVisuospatial," evaluating visuospatial abilities; and "CBI::PercentSelfCareFCorrected," reflecting the percentage of the maximum achievable score in self-care as assessed by The Cambridge Behavioural Inventory-Revised (CBI-R), with higher scores indicating superior self-care performance.
+
+The type of effect each variables has on the outcome is depicted in the barchart; an orange bar signifies a positive impact on the model, while those in blue indicate a negative impact.
+
+It was also observed that when different diagnosis types were incorporated into the model, the FTD-MND type emerged as a significant factor, suggesting that having FTD-MND has a statistically measurable impact on the outcome compared to the base level, which is the AD type. Given that FTD-MND was not the primary focus of the investigation, it was excluded from the chart. Full details of this decision are documented in the appendix.
+
+## Significance of factors by dementia diagnosis
+
+While the initial model provided a comprehensive overview of general survival impacts, an alternative approach was to evaluate the effects of each factor within specific diagnosis types. Consequently, individual models were fitted for each type of dementia diagnosis. However, certain diagnosis groups—specifically nfvPPA + Parkinson’s plus, PSP, and svPPA—suffered from insufficient observations, which likely led to over-fitting. Over-fitting tend to manifested as models capturing noise rather than true underlying patterns, exacerbated by the fact that the 18 covariates used in each model sometimes exceeded the number of observations available for these diagnosis types (refer to Appendix for details). As a result, the analysis was concentrated on dementia groups with adequate data, identifying significant covariates that influenced the time from diagnosis to death.
+
+
+
+```{r}
+unique_dx = c("AD", "bvFTD", "CBS","FTD-MND","lvPPA","nfvPPA")                   
+coeffs_list = list()
+coeffs_significance = list()
+plot_diag = list()
+for (name in unique_dx) {
+  data_stand_filtered = data_stand_no_high_vif %>% filter(Diagnosis_name == name)
+  data_stand_filtered = data_stand_filtered %>% select(-Diagnosis_name)
+  fit <- survreg(Surv(`Diagnosis till death`) ~ ., data = data_stand_filtered, dist = "lognormal")
+  diagnosis_fit <- summary(fit)
+  coefs <- diagnosis_fit$table %>% as.data.frame()
+  coefs = coefs %>% drop_na()
+  rownames(coefs)<- sub("`", "", rownames(coefs))
+  rownames(coefs)<- sub("`", " ", rownames(coefs))
+  colnames(coefs) <- c("Coefficient", "Std. Error", "z value", "p value")
+  coefs_sorted <- coefs[order(abs(coefs[,"Coefficient"]), decreasing = TRUE), ]
+  coeffs_list[[name]] = coefs_sorted
+
+  
+  
+  significant_vars <- coefs_sorted[coefs_sorted[, "p value"] < 0.05, ]
+  rows_to_remove <- c("(Intercept)", "Log(scale)")
+  significant_vars <- significant_vars[!rownames(significant_vars) %in% rows_to_remove, ]
+  significant_vars$Variable <- rownames(significant_vars)
+  coeffs_significance[[name]] = significant_vars
+  significant_vars$abso = abs(significant_vars$Coefficient)
+
+  p = ggplot(significant_vars, aes(x = Variable, y = abso, fill = Coefficient > 0)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_manual(values = c("#6D9EC1", "#E46726"),
+                    labels = c("Negative Impact", "Positive Impact"),
+                    name = "Impact Type") +
+  labs(title = paste0("Impact of Significant Coefficients in ", name), x = "Factors", y = "Coefficients Impact") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  plot_diag[[name]] = list(plot = p)
+
+}
+
+```
+
+::: panel-tabset
+```{r, results='asis'}
+#| warning: false
+figure_number <- 2  # Initial figure number
+
+purrr::iwalk(plot_diag, ~ {
+  cat('## Figure ', figure_number, ':', .y, '\n\n', sep = "")
+  
+  print(.x$plot)
+  cat("\n\n")
+  
+  # Increment the figure number by 1
+  figure_number <<- figure_number + 1
+})
+
+
+
+```
+:::
+
+Significant variables impacting the survival times for each dementia group were identified through visualization in the analysis. Key findings include:
+
+-   Alzheimer's Disease (AD): "ACEIII::SubtotalVisuospatial" positively affects survival, whereas "EducationYearsTotal" and "Age at diagnosis" have a detrimental impact.
+
+-   Behavioral Variant Frontotemporal Dementia (bvFTD): Positive influences are noted from "CBI::PercentMemory", "ACEIII::SubtotalVisuospatial", and "ACEIII::SubtotalFluency"; "CBI::PercentSelfCare" exerts a negative effect.
+
+-   Corticobasal Syndrome (CBS): "ACEIII::SubtotalAttention" enhances survival prospects, while "CBI::PercentEating" and "CBI::PercentAbnormal" reduce them.
+
+-   FTD-Motor Neuron Disease (FTD-MND): Positive contributions come from "Sex (Male 1, Female 2)" and "Disease duration at diagnosis"; "CBI::PercentAbnormal" negatively influences outcomes.
+
+-   Logopenic Variant Primary Progressive Aphasia (lvPPA): "CBI::PercentSelfCare" and "ACEIII::SubtotalLanguage" are beneficial; "CBI::PercentAbnormal" is harmful.
+
+-   Nonfluent Variant Primary Progressive Aphasia (nfvPPA): Positives include "Sex (Male 1, Female 2)", "CBI::PercentEating", and "ACEIII::SubtotalFluency"; "ACEIII::SubtotalAttention" impacts negatively.
+
+The recurrent significance of variables such as "Age at diagnosis", and "Disease duration at diangosis", several ACEIII scores and CBI scores across most dementia groups underscores their importance to time from diagnosis to death, as well as supporting the client's choice of covaraites in the interactive survival graph.
+
+# Conclusion
+
+In conclusion, this report has successfully met the client's two primary objectives. Firstly, it offers an interactive survival chart grounded on the Cox Proportional Hazard model, illustrating the interplay among the four key covariates. Secondly, two distinct approaches were implemented to examine the impact of the 18 covariates of interest to the client. While the first approach provides a comprehensive overview of the current data, the second approach is designed to be concise and can be easily scalable through the inclusion additional diagnosis types as more data becomes available.
+
+# Appendix
+
+## Testing Proportional Harzard
+
+::: panel-tabset
+```{r, results='asis'}
+#| warning: false
+
+headings <- names(test_ph_list)
+table_number =  1 
+for (i in seq_along(test_ph_list)) {
+  cat("# Table ", table_number, ": ", headings[i], "\n", sep = "")
+  print(kable(test_ph_list[[i]], format = "markdown") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")))
+  table_number = table_number + 1
+  cat("\n\n")}
+```
+:::
+
+## Checking multi-collinearity
+
+```{r, fig.width= 16, fig.height=12}
+
+colnames(data_stand_no_high_vif) = gsub("FCorrected", "", colnames(data_stand_no_high_vif))
+colnames(data_stand_no_high_vif) = gsub("ClinicalAssessment::", "", colnames(data_stand_no_high_vif))
+
+corr<-cor(data_stand_no_high_vif[4:21])
+ggcorrplot(corr, type = "lower", ggtheme = ggplot2::theme_void, lab = TRUE,
+    colors = c("#6D9EC1", "white", "#E46726")
+  ) + scale_y_discrete(position='right')+
+  labs(caption = "Figure 8: Correlation Plot") + theme(plot.caption = element_text(size = 16))
+```
+
+## Number of observations per dementia diagosis type
+```{r}
+# list observations in each categories
+table(data_stand$Diagnosis_name) %>% kable(format = "markdown", col.names = c("Diagnosis Type", "Number of Observations"), caption = paste("Table 10 : Distribution of Diagnosis Types")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) 
+```
+## Results from all dementia diagnosis
+
+```{r}
+styled_table_for_full_model
+```
+
+## Results from each dementia diagnosis
+
+::: panel-tabset
+```{r, results='asis'}
+#| warning: false
+
+headings <- names(coeffs_list)
+table_number = 12
+for (i in seq_along(coeffs_list)) {
+  cat("# Table ", table_number, ": ", headings[i], "\n", sep = "")
+  print(kable(coeffs_list[[i]], format = "markdown") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")))
+table_number = table_number+1
+  cat("\n\n")}
+
+
+```
+:::
+
+# Contribution
+
+Linh Trinh - Analysis and Report writing. Betty Zhao - Analysis and Report writing.
