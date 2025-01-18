@@ -1,0 +1,1 @@
+Please open report by HTML or by downloading the folder and running the quarto document to get an interactive app. HTML files doesn't support the interactive app so I've attach a GIF below that demonstrates how it works.
