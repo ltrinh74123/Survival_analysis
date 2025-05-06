@@ -49,7 +49,7 @@ suppressMessages({
 This report aims to demonstrate the application of a Cox Proportional Hazard regression model to examine how four key covariates — Sex, Age at Diagnosis, Disease Duration at Diagnosis, and ACE-III Score — affect the survival probability of individuals across various dementia diagnoses. Additionally, a log normal regression was implemented to identify and order the level of impact from the same variables in the cox regression as well as more additional ones like cognitive and behavioral has on survival, both holistically across all dementia types and within each specific dementia diagnosis. It was found that the holistic approach has labelled the disease duration at diagnosis and some sub categories under ACE-III and Cambridge Behavioural Inventory (CBI) scores as significant factors, but under each different diagnosis types, the factors would vary in importance.
 
 ```{r}
-data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
+data = readxl::read_xlsx("data/240508_Survival_project_for_maths_students_opened.xlsx")
 data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
 data[data == 999.0] <- NA
 data = data %>% filter(!Diagnosis_number == 2.5)
@@ -150,7 +150,7 @@ library(survminer)
 library(pammtools)
 
 
-data = readxl::read_xlsx("240508_Survival_project_for_maths_students_opened.xlsx")
+data = readxl::read_xlsx("data/240508_Survival_project_for_maths_students_opened.xlsx")
 data$`Sex (Male 1, Female 2)` = as.factor(data$`Sex (Male 1, Female 2)`)
 data[data == 999.0] <- NA
 data = data %>% filter(!Diagnosis_number == 2.5)
