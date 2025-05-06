@@ -1,2 +1,3 @@
 /.quarto/
+*.xlsx
 git rm --cached *.xlsx
