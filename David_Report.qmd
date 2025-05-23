@@ -1,11 +1,6 @@
 ---
-title: "STAT3926/STAT4026: Statistical Consulting"
-subtitle: "Survival Analysis"
-author:
-  - "Prepared by: 510288769, 500199066"
-  - "Prepared for: David Foxe"
+title: "Survival Analysis Report"
 title-block-banner: "#d85f33"
-date: "`r format(Sys.time(), '%d %B, %Y %H:%M')`"
 format: 
   html: 
     theme:
@@ -504,6 +499,3 @@ table_number = table_number+1
 ```
 :::
 
-# Contribution
-
-Linh Trinh - Analysis and Report writing. Betty Zhao - Analysis and Report writing.
